@@ -1,0 +1,19 @@
+{
+  "agent": "dev-rails",
+  "role": "dev",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["rails-models", "rails-controllers", "rails-performance", "rails-testing", "git-workflow", "code-review-practices"],
+  "mcp": {
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": {
+        "DATABASE_URL": "${DATABASE_URL}"
+      }
+    }
+  },
+  "taskFilter": {
+    "tags": ["backend", "rails"]
+  }
+}

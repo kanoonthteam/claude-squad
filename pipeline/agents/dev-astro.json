@@ -1,0 +1,11 @@
+{
+  "agent": "dev-astro",
+  "role": "dev",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["astro-architecture", "astro-content", "astro-components", "astro-testing", "git-workflow", "code-review-practices"],
+  "mcp": {},
+  "taskFilter": {
+    "tags": ["frontend", "astro"]
+  }
+}

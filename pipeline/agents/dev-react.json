@@ -1,0 +1,19 @@
+{
+  "agent": "dev-react",
+  "role": "dev",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["react-architecture", "react-state", "react-testing", "react-ui", "git-workflow", "code-review-practices"],
+  "mcp": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      }
+    }
+  },
+  "taskFilter": {
+    "tags": ["frontend", "react"]
+  }
+}

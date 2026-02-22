@@ -1,0 +1,19 @@
+{
+  "agent": "dev-node",
+  "role": "dev",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["node-architecture", "node-api", "node-testing", "node-performance", "git-workflow", "code-review-practices"],
+  "mcp": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      }
+    }
+  },
+  "taskFilter": {
+    "tags": ["backend", "node"]
+  }
+}

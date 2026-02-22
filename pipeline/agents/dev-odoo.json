@@ -1,0 +1,19 @@
+{
+  "agent": "dev-odoo",
+  "role": "dev",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["odoo-models", "odoo-views", "odoo-backend", "odoo-testing", "git-workflow", "code-review-practices"],
+  "mcp": {
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": {
+        "DATABASE_URL": "${DATABASE_URL}"
+      }
+    }
+  },
+  "taskFilter": {
+    "tags": ["backend", "odoo"]
+  }
+}

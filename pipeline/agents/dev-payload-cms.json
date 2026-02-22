@@ -1,0 +1,19 @@
+{
+  "agent": "dev-payload-cms",
+  "role": "dev",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["payload-collections", "payload-admin", "payload-api", "payload-testing", "git-workflow", "code-review-practices"],
+  "mcp": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      }
+    }
+  },
+  "taskFilter": {
+    "tags": ["backend", "cms", "payload"]
+  }
+}

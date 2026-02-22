@@ -1,0 +1,11 @@
+{
+  "agent": "devop-firebase",
+  "role": "devops",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["firebase-backend", "firebase-security", "firebase-operations", "devops-cicd", "devops-containers", "devops-monitoring", "terraform-patterns", "observability-practices", "incident-management"],
+  "mcp": {},
+  "taskFilter": {
+    "tags": ["devops", "firebase"]
+  }
+}

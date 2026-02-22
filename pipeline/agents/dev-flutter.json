@@ -1,0 +1,19 @@
+{
+  "agent": "dev-flutter",
+  "role": "dev",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["flutter-architecture", "flutter-networking", "flutter-testing", "flutter-ui", "flutter-firebase", "flutter-platform", "flutter-localization", "flutter-maps", "git-workflow", "code-review-practices"],
+  "mcp": {
+    "firebase": {
+      "command": "npx",
+      "args": ["-y", "firebase-mcp-server"],
+      "env": {
+        "FIREBASE_PROJECT_ID": "${FIREBASE_PROJECT_ID}"
+      }
+    }
+  },
+  "taskFilter": {
+    "tags": ["mobile", "flutter"]
+  }
+}

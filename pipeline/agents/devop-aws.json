@@ -1,0 +1,11 @@
+{
+  "agent": "devop-aws",
+  "role": "devops",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["aws-compute", "aws-data", "aws-security", "aws-operations", "devops-cicd", "devops-containers", "devops-monitoring", "terraform-patterns", "kubernetes-patterns", "observability-practices", "incident-management"],
+  "mcp": {},
+  "taskFilter": {
+    "tags": ["devops", "aws"]
+  }
+}

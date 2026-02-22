@@ -1,0 +1,11 @@
+{
+  "agent": "dev-webflow",
+  "role": "dev",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["webflow-structure", "webflow-cms", "webflow-interactions", "webflow-testing", "git-workflow", "code-review-practices"],
+  "mcp": {},
+  "taskFilter": {
+    "tags": ["frontend", "webflow"]
+  }
+}

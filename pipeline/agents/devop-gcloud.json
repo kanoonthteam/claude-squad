@@ -1,0 +1,11 @@
+{
+  "agent": "devop-gcloud",
+  "role": "devops",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["gcloud-compute", "gcloud-data", "gcloud-security", "gcloud-operations", "devops-cicd", "devops-containers", "devops-monitoring", "terraform-patterns", "kubernetes-patterns", "observability-practices", "incident-management"],
+  "mcp": {},
+  "taskFilter": {
+    "tags": ["devops", "gcloud"]
+  }
+}
