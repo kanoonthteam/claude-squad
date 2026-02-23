@@ -28,15 +28,24 @@ Launch the claude-squad development pipeline.
    - Tasks are assigned to dev/devops agents based on their tags
    - Multiple agents can work in parallel on independent tasks
    - Each agent implements their task and marks it done
+   - **Auto-advances** to integration when all tasks are done
 
-3. **Verification Phase**:
+3. **Integration Phase**:
+   - Integration agent writes E2E tests for new user flows
+   - Updates CHANGELOG, README, API docs, migration guides
+   - Validates cross-feature integration points
+   - **Auto-advances** to verification when complete
+
+4. **Verification Phase**:
    - QA agent verifies each completed task against acceptance criteria
    - Bugs are reported and routed back to dev agents
    - Phase completes when all tasks pass QA
 
+The pipeline tracks progress via `pipelinePhase` in `tasks.json`. After context compaction, it reads this field to resume from where it left off. When complete, it sets `pipelinePhase` to `"completed"` and returns to normal interaction.
+
 ## Multi-Phase Features
 
-For large features, the PM breaks work into phases. Each phase completes its full cycle before the next begins.
+For large features, the PM breaks work into phases. Each phase completes its full cycle (implement → integrate → verify) before the next begins.
 
 ## Customization
 

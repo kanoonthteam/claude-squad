@@ -57,7 +57,10 @@ categorize_skill() {
     task-*|domain-*|design-*|agile-frameworks|stakeholder-communication|requirements-elicitation|process-modeling|architecture-documentation|security-architecture|api-design|api-security)
       echo "planning"
       ;;
-    pipeline|pipeline-status|review)
+    pipeline)
+      echo "planning"
+      ;;
+    pipeline-status|review)
       echo "utility"
       ;;
     *)

@@ -199,6 +199,9 @@ sync_agents() {
     return
   fi
 
+  # Core agents that should always be present (auto-added even without --all)
+  local core_agents="pipeline-agent pm-agent ba-agent designer-agent architect-agent integration-agent qa-agent"
+
   for src in "$src_dir"/*.md; do
     [ -f "$src" ] || continue
     local fname
@@ -207,6 +210,31 @@ sync_agents() {
     if [ "$fname" = "skill-tester-agent.md" ]; then
       continue
     fi
+    local agent_name="${fname%.md}"
+
+    # Auto-add missing core agents (they should always exist)
+    if [ ! -f "$dest_dir/$fname" ]; then
+      local is_core=false
+      for ca in $core_agents; do
+        if [ "$ca" = "$agent_name" ]; then
+          is_core=true
+          break
+        fi
+      done
+      if [ "$is_core" = true ]; then
+        if [ "$DRY_RUN" = true ]; then
+          echo "  [dry-run] Would create (new core): $(rel_path "$dest_dir/$fname")"
+          CREATED=$((CREATED + 1))
+        else
+          mkdir -p "$dest_dir"
+          cp "$src" "$dest_dir/$fname"
+          echo "  Created (new core): $(rel_path "$dest_dir/$fname")"
+          CREATED=$((CREATED + 1))
+        fi
+        continue
+      fi
+    fi
+
     sync_file "$src" "$dest_dir/$fname" "false"
   done
 }
@@ -243,12 +271,31 @@ sync_pipeline() {
     return
   fi
 
-  # Root-level pipeline files (config.json)
+  # Core pipeline configs that should always be present
+  local core_configs="pm ba designer architect integration qa"
+
+  # Root-level pipeline files (config.json) — always sync
   for src in "$src_dir"/*.json; do
     [ -f "$src" ] || continue
     local fname
     fname=$(basename "$src")
-    sync_file "$src" "$dest_dir/$fname" "false"
+    local dest="$dest_dir/$fname"
+
+    # Root pipeline files (config.json) are always core — auto-add if missing
+    if [ ! -f "$dest" ]; then
+      if [ "$DRY_RUN" = true ]; then
+        echo "  [dry-run] Would create (core): $(rel_path "$dest")"
+        CREATED=$((CREATED + 1))
+      else
+        mkdir -p "$dest_dir"
+        cp "$src" "$dest"
+        echo "  Created (core): $(rel_path "$dest")"
+        CREATED=$((CREATED + 1))
+      fi
+      continue
+    fi
+
+    sync_file "$src" "$dest" "false"
   done
 
   # Agent pipeline configs (preserve user-customized "count")
@@ -257,7 +304,31 @@ sync_pipeline() {
       [ -f "$src" ] || continue
       local fname
       fname=$(basename "$src")
+      local config_name="${fname%.json}"
       local dest="$dest_dir/agents/$fname"
+
+      # Auto-add missing core pipeline configs
+      if [ ! -f "$dest" ]; then
+        local is_core=false
+        for cc in $core_configs; do
+          if [ "$cc" = "$config_name" ]; then
+            is_core=true
+            break
+          fi
+        done
+        if [ "$is_core" = true ]; then
+          if [ "$DRY_RUN" = true ]; then
+            echo "  [dry-run] Would create (new core): $(rel_path "$dest")"
+            CREATED=$((CREATED + 1))
+          else
+            mkdir -p "$dest_dir/agents"
+            cp "$src" "$dest"
+            echo "  Created (new core): $(rel_path "$dest")"
+            CREATED=$((CREATED + 1))
+          fi
+          continue
+        fi
+      fi
 
       # If dest exists and has a custom count, build a temp source
       # with the user's count so we don't overwrite it

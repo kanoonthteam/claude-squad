@@ -70,7 +70,7 @@ echo "Test 1: --list shows all agents with skills"
 LIST_OUTPUT=$(bash "$SETUP" --list 2>&1)
 
 # Check core agents listed
-for agent in pipeline-agent pm-agent ba-agent designer-agent architect-agent qa-agent; do
+for agent in pipeline-agent pm-agent ba-agent designer-agent architect-agent integration-agent qa-agent; do
   if echo "$LIST_OUTPUT" | grep -q "$agent"; then
     : # ok
   else
@@ -112,20 +112,20 @@ echo "Test 2: --agents dev-rails copies correct subset"
 T2="$TEST_DIR/t2"
 bash "$SETUP" "$T2" --agents dev-rails > /dev/null 2>&1
 
-# Should have exactly 7 agent .md files (6 core + 1 dev-rails)
+# Should have exactly 8 agent .md files (7 core + 1 dev-rails)
 AGENT_COUNT=$(count_files "$T2/.claude/agents")
-if [ "$AGENT_COUNT" = "7" ]; then
-  pass "Test 2a: 7 agent .md files"
+if [ "$AGENT_COUNT" = "8" ]; then
+  pass "Test 2a: 8 agent .md files"
 else
-  fail "Test 2a: expected 7 agents, got $AGENT_COUNT"
+  fail "Test 2a: expected 8 agents, got $AGENT_COUNT"
 fi
 
-# Should have exactly 6 pipeline configs (5 core + dev-rails)
+# Should have exactly 7 pipeline configs (6 core + dev-rails)
 PIPELINE_COUNT=$(count_files "$T2/.claude/pipeline/agents")
-if [ "$PIPELINE_COUNT" = "6" ]; then
-  pass "Test 2b: 6 pipeline configs"
+if [ "$PIPELINE_COUNT" = "7" ]; then
+  pass "Test 2b: 7 pipeline configs"
 else
-  fail "Test 2b: expected 6 pipeline configs, got $PIPELINE_COUNT"
+  fail "Test 2b: expected 7 pipeline configs, got $PIPELINE_COUNT"
 fi
 
 # Check specific agent files exist
@@ -135,6 +135,7 @@ if assert_file_exists "$T2/.claude/agents/dev-rails.md" && \
    assert_file_exists "$T2/.claude/agents/ba-agent.md" && \
    assert_file_exists "$T2/.claude/agents/designer-agent.md" && \
    assert_file_exists "$T2/.claude/agents/architect-agent.md" && \
+   assert_file_exists "$T2/.claude/agents/integration-agent.md" && \
    assert_file_exists "$T2/.claude/agents/qa-agent.md"; then
   pass "Test 2c: all expected agent files present"
 else
@@ -217,12 +218,12 @@ else
   fail "Test 3b: rails=$HAS_RAILS node=$HAS_NODE"
 fi
 
-# Should have 8 agent files (6 core + 2)
+# Should have 9 agent files (7 core + 2)
 AGENT_COUNT=$(count_files "$T3/.claude/agents")
-if [ "$AGENT_COUNT" = "8" ]; then
-  pass "Test 3c: 8 agent files"
+if [ "$AGENT_COUNT" = "9" ]; then
+  pass "Test 3c: 9 agent files"
 else
-  fail "Test 3c: expected 8 agents, got $AGENT_COUNT"
+  fail "Test 3c: expected 9 agents, got $AGENT_COUNT"
 fi
 
 # ─── Test 4: dev-rails + devop-flyio cross-category ──────────────────────────
@@ -258,12 +259,12 @@ for skill in rails-models rails-controllers; do
   fi
 done
 
-# Pipeline configs: 5 core + dev-rails + devop-flyio = 7
+# Pipeline configs: 6 core + dev-rails + devop-flyio = 8
 PIPELINE_COUNT=$(count_files "$T4/.claude/pipeline/agents")
-if [ "$PIPELINE_COUNT" = "7" ]; then
-  pass "Test 4: cross-category install correct (7 pipeline configs, both skill sets)"
+if [ "$PIPELINE_COUNT" = "8" ]; then
+  pass "Test 4: cross-category install correct (8 pipeline configs, both skill sets)"
 else
-  fail "Test 4: expected 7 pipeline configs, got $PIPELINE_COUNT"
+  fail "Test 4: expected 8 pipeline configs, got $PIPELINE_COUNT"
 fi
 
 # ─── Test 5: Repeatable — run twice, both agent sets present ─────────────────
@@ -317,14 +318,14 @@ T6="$TEST_DIR/t6"
 bash "$SETUP" "$T6" --agents dev-flutter > /dev/null 2>&1
 
 CORE_OK=true
-for agent in pipeline-agent pm-agent ba-agent designer-agent architect-agent qa-agent; do
+for agent in pipeline-agent pm-agent ba-agent designer-agent architect-agent integration-agent qa-agent; do
   if ! assert_file_exists "$T6/.claude/agents/$agent.md"; then
     CORE_OK=false
     fail "Test 6: missing core agent $agent"
   fi
 done
 
-for config in pm ba designer architect qa; do
+for config in pm ba designer architect integration qa; do
   if ! assert_file_exists "$T6/.claude/pipeline/agents/$config.json"; then
     CORE_OK=false
     fail "Test 6: missing core pipeline config $config.json"
@@ -365,7 +366,7 @@ echo "Test 8: Pipeline configs match selected agents"
 T8="$TEST_DIR/t8"
 bash "$SETUP" "$T8" --agents dev-react,devop-firebase > /dev/null 2>&1
 
-EXPECTED_CONFIGS="architect ba designer dev-react devop-firebase pm qa"
+EXPECTED_CONFIGS="architect ba designer dev-react devop-firebase integration pm qa"
 ACTUAL_CONFIGS=$(ls "$T8/.claude/pipeline/agents/" | sed 's/\.json$//' | sort | tr '\n' ' ' | xargs)
 
 if [ "$ACTUAL_CONFIGS" = "$EXPECTED_CONFIGS" ]; then
@@ -456,7 +457,7 @@ for agent in dev-rails devop-flyio; do
 done
 
 # Core agents should still have count 1
-for config in pm ba designer architect qa; do
+for config in pm ba designer architect integration qa; do
   ACTUAL=$(grep '"count"' "$T11/.claude/pipeline/agents/$config.json" | tr -d ' ,"' | cut -d: -f2)
   if [ "$ACTUAL" != "1" ]; then
     COUNT_OK=false

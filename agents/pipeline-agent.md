@@ -46,9 +46,51 @@ Each roster config specifies:
 
 If at any point the planning agents disagree or have unresolved questions, escalate to the user.
 
+## Phase Management
+
+The pipeline tracks its current state in `tasks.json` using the top-level `pipelinePhase` field:
+
+```json
+{
+  "project": "Feature Name",
+  "pipelinePhase": "planning|implementation|integration|verification|completed",
+  "phases": [ ... ]
+}
+```
+
+### Phase Transition Rules
+
+**CRITICAL: After every agent completes, check if the phase should advance.**
+
+| Current Phase | Advance When | Next Phase |
+|---|---|---|
+| `planning` | User approves the plan | `implementation` |
+| `implementation` | ALL tasks in current phase have status `"done"` | `integration` |
+| `integration` | Integration agent reports complete | `verification` |
+| `verification` | ALL tasks pass QA (no open bugs) | `completed` (or next phase's `implementation`) |
+
+After each agent finishes, run this check:
+1. Read `tasks.json`
+2. Check `pipelinePhase` to know where you are
+3. Check if the advance condition is met
+4. If yes: update `pipelinePhase` and **immediately** start the next phase
+5. If no: continue spawning agents for remaining work in the current phase
+
+### Context Recovery
+
+**After context compaction or session restart:**
+1. Read `tasks.json` — check `pipelinePhase` to know the current state
+2. If `pipelinePhase` is `"completed"` or missing — you are NOT in pipeline mode.
+   Respond to the user normally. Do not orchestrate.
+3. If `pipelinePhase` is active — resume from that phase:
+   - `implementation`: check for remaining `"todo"` tasks, spawn dev agents
+   - `integration`: spawn integration agent if not yet run
+   - `verification`: spawn QA agent
+4. Tell the user: "Resuming pipeline from [phase]. N tasks remaining."
+
 ## Implementation Phase
 
-After user approval:
+After user approval, set `pipelinePhase` to `"implementation"` in tasks.json, then:
 
 1. Read tasks from tasks.json
 2. For each task with status "todo":
@@ -57,10 +99,12 @@ After user approval:
    - Agent implements the task and moves it to "done"
 3. Run dev tasks in parallel where possible (respecting dependencies)
 4. DevOps tasks run after relevant dev tasks complete
+5. **After each dev agent completes**: check if ALL tasks in the current phase are "done"
+6. **If all done**: advance to integration phase immediately
 
 ## Integration Phase
 
-After implementation, before verification:
+When all implementation tasks are done, set `pipelinePhase` to `"integration"`, then:
 
 1. Spawn the integration agent
 2. Integration agent reads all completed tasks and their handoff notes
@@ -68,15 +112,17 @@ After implementation, before verification:
 4. Integration agent updates CHANGELOG, README, API docs, migration guides
 5. Integration agent reports any cross-feature integration issues
 6. If issues found, create fix tasks and route back to dev before proceeding to QA
+7. **When integration agent completes**: advance to verification phase immediately
 
 ## Verification Phase
 
-After integration:
+After integration, set `pipelinePhase` to `"verification"`, then:
 
 1. Spawn QA agent(s)
 2. QA verifies each completed task against its acceptance criteria
 3. QA reports bugs — pipeline creates fix tasks and routes back to dev
 4. Repeat until all tasks pass verification
+5. **When all tasks pass**: set `pipelinePhase` to `"completed"` and report to user
 
 ## Task Board (tasks.json)
 
@@ -85,6 +131,7 @@ Manage a kanban-style task board:
 ```json
 {
   "project": "Feature Name",
+  "pipelinePhase": "implementation",
   "phases": [
     {
       "name": "Phase 1",
@@ -107,7 +154,15 @@ Manage a kanban-style task board:
 
 ## Multi-Phase Support
 
-For large features, the PM breaks work into multiple phases. Each phase completes its full cycle (plan → implement → verify) before the next phase begins.
+For large features, the PM breaks work into multiple phases. Each phase completes its full cycle (implement → integrate → verify) before the next phase begins. When a phase's verification passes, advance to the next phase's `implementation` (not `completed`).
+
+## Completion
+
+When the final phase passes verification:
+1. Set `pipelinePhase` to `"completed"` in tasks.json
+2. Report a summary to the user: tasks completed, tests passing, docs updated
+3. **Stop orchestrating.** Return to normal Claude interaction.
+4. Do NOT continue spawning agents or managing tasks after completion.
 
 ## Rules
 
@@ -115,6 +170,8 @@ For large features, the PM breaks work into multiple phases. Each phase complete
 - Always get user approval before implementation
 - Match tasks to agents by tags, not by name
 - Track all task state changes in tasks.json
+- **Check phase transition after every agent completes** — never leave completed tasks sitting without advancing
 - Report progress after each phase completes
 - If no agent matches a task's tags, ask the user which agent to assign
+- After pipeline completes, stop orchestrating — respond to user normally
 - Never auto-generate mocks (e.g. dart mockito @GenerateMocks, python unittest.mock.patch auto-spec). Write manual mock/fake classes instead

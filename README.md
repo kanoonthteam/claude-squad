@@ -14,6 +14,9 @@ git clone https://github.com/kanoonth/claude-squad.git
 # Or specify agents directly (for CI/scripting)
 ./setup.sh /path/to/your/project --agents dev-rails,devop-flyio
 
+# Update an existing installation after git pull
+./setup.sh /path/to/your/project --update
+
 # Customize your BA's domain knowledge
 # Edit /path/to/your/project/.claude/agents/ba-agent.md
 
@@ -70,7 +73,7 @@ Agent count (press Enter to keep default):
   devop-flyio [1]:
 
 Summary:
-  Agents: 9 (6 core + dev-rails dev-node devop-flyio)
+  Agents: 10 (7 core + dev-rails dev-node devop-flyio)
   Skills: 44 (deduped)
   Counts:
     dev-rails            x2
@@ -109,7 +112,7 @@ For non-interactive mode, `--count` sets a blanket count for all newly selected 
 ./setup.sh /path/to/project --agents dev-rails,devop-flyio --count 2
 ```
 
-Core agents (PM, BA, Architect, QA) always stay at count 1.
+Core agents (Pipeline, PM, BA, Designer, Architect, Integration, QA) always stay at count 1.
 
 ### List Available Agents
 
@@ -135,14 +138,18 @@ In interactive mode, already-installed agents are marked with `*` and the count 
 
 ### Updating Installed Configs
 
-After updating claude-squad (e.g., `git pull`), use `scripts/update.sh` to sync changes into your project:
+After updating claude-squad (e.g., `git pull`), sync changes into your project:
 
 ```bash
+# Shorthand via setup.sh
+./setup.sh /path/to/project --update
+./setup.sh /path/to/project --update --dry-run
+
+# Or call the update script directly
+./scripts/update.sh /path/to/project
+
 # Show what changed (safe — no modifications)
 ./scripts/update.sh /path/to/project --dry-run
-
-# Update everything installed
-./scripts/update.sh /path/to/project
 
 # Update a specific category
 ./scripts/update.sh /path/to/project agents
@@ -394,7 +401,7 @@ claude-squad/
 │       └── SKILL.md
 ├── pipeline/
 │   ├── config.json        # Pipeline orchestration settings + Fizzy config
-│   └── agents/            # Per-agent pipeline configs (19 .json)
+│   └── agents/            # Per-agent pipeline configs (20 .json)
 ├── hooks/
 │   ├── test-before-commit.sh   # Pre-commit test hook
 │   └── protect-definitions.sh  # Agent/skill edit warning
@@ -479,9 +486,9 @@ Installing claude-squad to /Users/you/myproject/.claude ...
   claude-squad installed successfully!
 ============================================
 
-  Agents:           9
+  Agents:           10
   Skills:           44
-  Pipeline configs: 8
+  Pipeline configs: 9
   Hooks:            2
   Scripts:          4
 
@@ -528,12 +535,12 @@ bash scripts/test-setup.sh
 
 | # | Test | Assertions | What it verifies |
 |---|------|------------|------------------|
-| 1 | `--list` output | 1 | All 20 installable agents shown with skill counts and line counts |
-| 2 | `--agents dev-rails` | 6 | Correct agent files (7), pipeline configs (6), skills, hooks, settings |
+| 1 | `--list` output | 1 | All 21 installable agents shown with skill counts and line counts |
+| 2 | `--agents dev-rails` | 6 | Correct agent files (8), pipeline configs (7), skills, hooks, settings |
 | 3 | `dev-rails,dev-node` | 3 | Shared skills (`git-workflow`, `code-review-practices`) deduped, both skill sets present |
 | 4 | `dev-rails,devop-flyio` | 1 | Cross-category install: rails + flyio + shared devops skills |
 | 5 | Repeatable install | 3 | Run with rails, re-run with node — both agents, configs, and skills present |
-| 6 | Core agents | 1 | `pipeline-agent`, `pm-agent`, `ba-agent`, `designer-agent`, `architect-agent`, `qa-agent` always present |
+| 6 | Core agents | 1 | `pipeline-agent`, `pm-agent`, `ba-agent`, `designer-agent`, `architect-agent`, `integration-agent`, `qa-agent` always present |
 | 7 | No stale skills | 1 | Skills directory rebuilt from scratch — no leftovers from prior installs |
 | 8 | Pipeline config match | 1 | Only selected agents get `.json` configs |
 | 9 | Source validation | 1 | Every installed skill directory exists in source repo |
@@ -552,8 +559,8 @@ claude-squad setup.sh test suite
 Test 1: --list shows all agents with skills
   PASS Test 1: --list shows all agents with skills and line counts
 Test 2: --agents dev-rails copies correct subset
-  PASS Test 2a: 7 agent .md files
-  PASS Test 2b: 6 pipeline configs
+  PASS Test 2a: 8 agent .md files
+  PASS Test 2b: 7 pipeline configs
   PASS Test 2c: all expected agent files present
   PASS Test 2e: hooks copied
   PASS Test 2f: settings copied
@@ -561,9 +568,9 @@ Test 2: --agents dev-rails copies correct subset
 Test 3: --agents dev-rails,dev-node deduplicates shared skills
   PASS Test 3a: shared skills exist exactly once
   PASS Test 3b: both rails and node skills present
-  PASS Test 3c: 8 agent files
+  PASS Test 3c: 9 agent files
 Test 4: --agents dev-rails,devop-flyio copies correct cross-category skills
-  PASS Test 4: cross-category install correct (7 pipeline configs, both skill sets)
+  PASS Test 4: cross-category install correct (8 pipeline configs, both skill sets)
 Test 5: Repeatable install — run with dev-rails, then add dev-node
   PASS Test 5a: both agent .md files present after re-run
   PASS Test 5b: both pipeline configs present after re-run

@@ -18,13 +18,13 @@ SKILLS_DIR="$SCRIPT_DIR/skills"
 PIPELINE_DIR="$SCRIPT_DIR/pipeline"
 
 # Core agents (always installed)
-CORE_AGENTS="pipeline-agent pm-agent ba-agent designer-agent architect-agent qa-agent"
+CORE_AGENTS="pipeline-agent pm-agent ba-agent designer-agent architect-agent integration-agent qa-agent"
 
 # Utility skills (always installed)
 UTILITY_SKILLS="pipeline pipeline-status review"
 
 # Core pipeline configs (filename without .json)
-CORE_PIPELINE_CONFIGS="pm ba designer architect qa"
+CORE_PIPELINE_CONFIGS="pm ba designer architect integration qa"
 
 # Selectable agents grouped by category
 DEV_AGENTS="dev-rails dev-react dev-flutter dev-node dev-odoo dev-salesforce dev-webflow dev-astro dev-payload-cms"
@@ -393,11 +393,11 @@ interactive_picker() {
   skill_count=$(echo "$skill_list" | wc -l | tr -d ' ')
   local agent_count
   agent_count=$(echo "$all_selected" | wc -w | tr -d ' ')
-  local total_agents=$((6 + agent_count))
+  local total_agents=$((7 + agent_count))
 
   echo ""
   echo "Summary:"
-  echo "  Agents: $total_agents (6 core + $all_selected)"
+  echo "  Agents: $total_agents (7 core + $all_selected)"
   echo "  Skills: $skill_count (deduped)"
   local has_custom_count=false
   for pair in $counts; do
@@ -645,12 +645,41 @@ for arg in "$@"; do
   fi
 done
 
+# Handle --update: delegate to scripts/update.sh
+UPDATE_MODE=false
+UPDATE_ARGS=""
+for arg in "$@"; do
+  if [ "$arg" = "--update" ]; then
+    UPDATE_MODE=true
+  fi
+done
+if [ "$UPDATE_MODE" = true ]; then
+  # Collect all args except --update
+  UPDATE_TARGET=""
+  for arg in "$@"; do
+    if [ "$arg" = "--update" ]; then
+      continue
+    fi
+    if [ -z "$UPDATE_TARGET" ]; then
+      UPDATE_TARGET="$arg"
+    else
+      UPDATE_ARGS="$UPDATE_ARGS $arg"
+    fi
+  done
+  if [ -z "$UPDATE_TARGET" ]; then
+    echo "Usage: ./setup.sh /path/to/project --update [--dry-run] [--all]"
+    exit 1
+  fi
+  exec bash "$SCRIPT_DIR/scripts/update.sh" "$UPDATE_TARGET" $UPDATE_ARGS
+fi
+
 # Need at least a target path
 if [ -z "$1" ] || [[ "$1" == --* ]]; then
   echo "Usage:"
   echo "  ./setup.sh /path/to/project                              # Interactive picker"
   echo "  ./setup.sh /path/to/project --agents dev-rails,dev-node  # Non-interactive"
   echo "  ./setup.sh /path/to/project --agents dev-rails --count 2 # Set agent count"
+  echo "  ./setup.sh /path/to/project --update                     # Update installed configs"
   echo "  ./setup.sh --list                                        # Show available agents"
   echo ""
   echo "This installs claude-squad into your project's .claude/ directory."
