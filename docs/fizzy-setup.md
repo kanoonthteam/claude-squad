@@ -139,18 +139,18 @@ Your Fizzy board is now live at `https://your-fizzy-app.fly.dev`.
 4. **Note the board ID** — visible in the URL: `https://your-fizzy-app.fly.dev/your-slug/boards/42` → board ID is `42`
 5. **Note your account slug** — the path segment after the domain: `/your-slug/boards/...`
 
-### Set Up Columns
+### Columns
 
-By default, Fizzy boards have columns. The fizzy-sync script maps task statuses to column names:
+The fizzy-sync script maps task statuses to Fizzy column names. Missing columns are **auto-created** on the board when you first sync:
 
-| Task Status | Default Fizzy Column |
-|-------------|---------------------|
-| `todo` | Not now |
-| `in_progress` | Now |
-| `review` | Maybe |
-| `done` | Done |
+| Task Status | Default Mapping |
+|-------------|----------------|
+| `todo` | Todo |
+| `in_progress` | In Progress |
+| `review` | Review |
+| `done` | `__close__` (closes the card) |
 
-Rename your Fizzy columns to match, or change the `columnMap` in your project's `config.json` to match your Fizzy column names.
+The special value `__close__` closes the card instead of moving it to a column. Cards are automatically reopened if their status changes back to a non-done status. You can change `__close__` to a column name (e.g. `"Done"`) in `columnMap` if you prefer keeping done cards visible.
 
 ### Generate an API Token
 
@@ -179,7 +179,17 @@ Rename your Fizzy columns to match, or change the `columnMap` in your project's 
   --fizzy "https://your-fizzy-app.fly.dev,your-slug,\${FIZZY_TOKEN},42"
 ```
 
-### Option C: Manual Configuration
+### Option C: Reconfigure Fizzy on existing project
+
+```bash
+# Interactive — prompts for each value (shows current values as defaults)
+./setup.sh /path/to/project --fizzy
+
+# Non-interactive
+./setup.sh /path/to/project --fizzy "https://your-fizzy-app.fly.dev,your-slug,\${FIZZY_TOKEN},42"
+```
+
+### Option D: Manual Configuration
 
 Edit `.claude/pipeline/config.json` in your project:
 
@@ -192,10 +202,10 @@ Edit `.claude/pipeline/config.json` in your project:
     "sync": true,
     "boardId": "42",
     "columnMap": {
-      "todo": "Not now",
-      "in_progress": "Now",
-      "review": "Maybe",
-      "done": "Done"
+      "todo": "Todo",
+      "in_progress": "In Progress",
+      "review": "Review",
+      "done": "__close__"
     }
   }
 }
@@ -232,7 +242,7 @@ Pushing 12 tasks to https://your-fizzy-app.fly.dev ...
   CREATE  #3   Build login endpoint    [in_progress]
   ...
 
-Done: 12 created, 0 updated, 0 skipped
+Done: 12 created, 0 updated, 0 closed, 0 skipped
 ```
 
 Re-running the script updates existing cards (moves them to the correct column based on current status) and creates new ones.
@@ -297,6 +307,8 @@ If your Fizzy columns don't match the defaults, update `fizzy.columnMap` in `con
   "done": "Completed"
 }
 ```
+
+Use `"__close__"` for the `done` value to close cards instead of moving them to a column. Use a column name (e.g. `"Done"`) to keep completed cards visible on the board.
 
 ## Cost
 
