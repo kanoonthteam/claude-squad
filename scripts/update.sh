@@ -295,6 +295,20 @@ sync_pipeline() {
       continue
     fi
 
+    # Preserve user's fizzy config when comparing config.json
+    if [ "$fname" = "config.json" ] && command -v jq > /dev/null 2>&1; then
+      local user_fizzy
+      user_fizzy=$(jq '.fizzy // empty' "$dest" 2>/dev/null || true)
+      if [ -n "$user_fizzy" ]; then
+        local tmp_src
+        tmp_src=$(mktemp)
+        jq --argjson fizzy "$user_fizzy" '.fizzy = $fizzy' "$src" > "$tmp_src"
+        sync_file "$tmp_src" "$dest" "false"
+        rm -f "$tmp_src"
+        continue
+      fi
+    fi
+
     sync_file "$src" "$dest" "false"
   done
 
