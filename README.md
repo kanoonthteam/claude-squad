@@ -362,9 +362,9 @@ bash .claude/scripts/fizzy-sync.sh
 ```
 
 The script reads `tasks.json`, creates/updates Fizzy cards, and maps statuses to columns:
-- `todo` → "Not now" | `in_progress` → "Now" | `review` → "Maybe" | `done` → "Done"
+- `todo` → "Todo" | `in_progress` → "In Progress" | `review` → "Review" | `done` → `__close__`
 
-Column mapping is configurable in `.claude/pipeline/config.json` under `fizzy.columnMap`.
+Missing columns are auto-created on the board. Use `__close__` to close cards instead of moving to a column (cards are reopened if the status changes back). Column mapping is configurable in `.claude/pipeline/config.json` under `fizzy.columnMap`.
 
 ## Task Board
 

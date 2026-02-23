@@ -32,10 +32,10 @@
     "sync": false,
     "boardId": "",
     "columnMap": {
-      "todo": "Not now",
-      "in_progress": "Now",
-      "review": "Maybe",
-      "done": "Done"
+      "todo": "Todo",
+      "in_progress": "In Progress",
+      "review": "Review",
+      "done": "__close__"
     }
   }
 }

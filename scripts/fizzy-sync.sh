@@ -8,6 +8,10 @@
 # displaying them in the terminal. Creates new cards for unsynced
 # tasks and updates existing ones.
 #
+# Column map supports "__close__" as a special value — instead of
+# moving to a column, the card is closed (and reopened if the status
+# changes back to a non-close status).
+#
 # Configuration: .claude/pipeline/config.json → fizzy section
 # Environment:   FIZZY_TOKEN (overrides config token)
 
@@ -51,10 +55,11 @@ else
 fi
 
 # Column mapping (task status → Fizzy column name)
-COL_TODO=$(jq -r '.fizzy.columnMap.todo // "Not now"' "$CONFIG")
-COL_IN_PROGRESS=$(jq -r '.fizzy.columnMap.in_progress // "Now"' "$CONFIG")
-COL_REVIEW=$(jq -r '.fizzy.columnMap.review // "Maybe"' "$CONFIG")
-COL_DONE=$(jq -r '.fizzy.columnMap.done // "Done"' "$CONFIG")
+# Use "__close__" as a value to close cards instead of moving to a column
+COL_TODO=$(jq -r '.fizzy.columnMap.todo // "Todo"' "$CONFIG")
+COL_IN_PROGRESS=$(jq -r '.fizzy.columnMap.in_progress // "In Progress"' "$CONFIG")
+COL_REVIEW=$(jq -r '.fizzy.columnMap.review // "Review"' "$CONFIG")
+COL_DONE=$(jq -r '.fizzy.columnMap.done // "__close__"' "$CONFIG")
 
 # ─── Validate ────────────────────────────────────────────────────────────────
 
@@ -91,6 +96,7 @@ fi
 # ─── API Helper ──────────────────────────────────────────────────────────────
 
 HTTP_STATUS=""
+RESPONSE_FILE=$(mktemp)
 
 fizzy_api() {
   local method="$1"
@@ -98,15 +104,12 @@ fizzy_api() {
   local data="${3:-}"
   local url="${FIZZY_URL}/${ACCOUNT_SLUG}${endpoint}"
 
-  local tmp_file
-  tmp_file=$(mktemp)
-
   local curl_args=(
     -s -w "%{http_code}"
     -H "Authorization: Bearer $TOKEN"
     -H "Content-Type: application/json"
     -H "Accept: application/json"
-    -o "$tmp_file"
+    -o "$RESPONSE_FILE"
   )
 
   if [ "$method" != "GET" ]; then
@@ -117,43 +120,112 @@ fizzy_api() {
   fi
 
   HTTP_STATUS=$(curl "${curl_args[@]}" "$url")
-  cat "$tmp_file"
-  rm -f "$tmp_file"
 }
+
+# Read last API response body (use after fizzy_api call)
+fizzy_response() {
+  cat "$RESPONSE_FILE"
+}
+
+trap 'rm -f "$RESPONSE_FILE"' EXIT
 
 # ─── Resolve Columns ────────────────────────────────────────────────────────
 
 COLUMN_CACHE=""
 
 resolve_columns() {
-  local response
-  response=$(fizzy_api GET "/boards/$BOARD_ID")
+  fizzy_api GET "/boards/$BOARD_ID/columns"
 
   if [ "$HTTP_STATUS" != "200" ]; then
-    echo "Error: Failed to fetch board $BOARD_ID (HTTP $HTTP_STATUS)"
+    echo "Error: Failed to fetch columns for board $BOARD_ID (HTTP $HTTP_STATUS)"
     exit 1
   fi
 
-  COLUMN_CACHE=$(echo "$response" | jq -r '.columns[] | "\(.name):\(.id)"')
+  COLUMN_CACHE=$(fizzy_response | jq -r '.[]? | "\(.name):\(.id)"')
 }
 
 get_column_id() {
   echo "$COLUMN_CACHE" | grep "^${1}:" | head -1 | cut -d: -f2
 }
 
-status_to_column_id() {
+# Map task status to a column name
+status_to_column_name() {
   case "$1" in
-    todo)        get_column_id "$COL_TODO" ;;
-    in_progress) get_column_id "$COL_IN_PROGRESS" ;;
-    review)      get_column_id "$COL_REVIEW" ;;
-    done)        get_column_id "$COL_DONE" ;;
-    *)           get_column_id "$COL_TODO" ;;
+    todo)        echo "$COL_TODO" ;;
+    in_progress) echo "$COL_IN_PROGRESS" ;;
+    review)      echo "$COL_REVIEW" ;;
+    done)        echo "$COL_DONE" ;;
+    *)           echo "$COL_TODO" ;;
   esac
+}
+
+# ─── Ensure Columns Exist ───────────────────────────────────────────────────
+
+create_column() {
+  local name="$1"
+  local color="${2:-#6B7280}"
+  local data
+  data=$(jq -n --arg n "$name" --arg c "$color" '{"column": {"name": $n, "color": $c}}')
+  fizzy_api POST "/boards/$BOARD_ID/columns" "$data"
+  if [ "$HTTP_STATUS" = "201" ] || [ "$HTTP_STATUS" = "200" ]; then
+    echo "  Created column: $name"
+    return 0
+  else
+    echo "  Error creating column '$name' (HTTP $HTTP_STATUS)"
+    return 1
+  fi
+}
+
+ensure_columns() {
+  local created=0
+
+  # Collect required column names, skipping __close__
+  for col_name in "$COL_TODO" "$COL_IN_PROGRESS" "$COL_REVIEW" "$COL_DONE"; do
+    # __close__ is a special value, not a real column
+    if [ "$col_name" = "__close__" ]; then
+      continue
+    fi
+    local col_id
+    col_id=$(get_column_id "$col_name")
+    if [ -z "$col_id" ]; then
+      create_column "$col_name" || true
+      created=$((created + 1))
+    fi
+  done
+
+  # Re-fetch columns if any were created
+  if [ "$created" -gt 0 ]; then
+    resolve_columns
+  fi
+}
+
+# ─── Card Close/Reopen ──────────────────────────────────────────────────────
+
+close_card() {
+  local card_id="$1"
+  fizzy_api POST "/cards/$card_id/closure"
+  # 204 = closed, 200 = already closed
+  if [ "$HTTP_STATUS" = "204" ] || [ "$HTTP_STATUS" = "200" ]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+reopen_card() {
+  local card_id="$1"
+  fizzy_api DELETE "/cards/$card_id/closure"
+  # 204 = reopened, 200/404 = already open
+  return 0
 }
 
 # ─── Push Tasks ──────────────────────────────────────────────────────────────
 
 resolve_columns
+ensure_columns
+
+# Get first column ID as fallback for creating cards that will be immediately closed
+FIRST_COLUMN_ID=$(echo "$COLUMN_CACHE" | head -1 | cut -d: -f2)
 
 PROJECT=$(jq -r '.project // "Untitled"' "$TASKS_FILE")
 TASK_COUNT=$(jq '[.phases[].tasks[]] | length' "$TASKS_FILE")
@@ -166,6 +238,7 @@ echo ""
 
 CREATED=0
 UPDATED=0
+CLOSED=0
 SKIPPED=0
 
 PHASES=$(jq -r '.phases | length' "$TASKS_FILE")
@@ -181,7 +254,15 @@ for ((p=0; p<PHASES; p++)); do
     TASK_TAGS=$(jq -r ".phases[$p].tasks[$t].tags // [] | join(\", \")" "$TASKS_FILE")
     FIZZY_CARD=$(jq -r ".phases[$p].tasks[$t].fizzyCard // empty" "$TASKS_FILE")
 
-    COLUMN_ID=$(status_to_column_id "$TASK_STATUS")
+    COL_NAME=$(status_to_column_name "$TASK_STATUS")
+    SHOULD_CLOSE=false
+
+    if [ "$COL_NAME" = "__close__" ]; then
+      SHOULD_CLOSE=true
+      COLUMN_ID="$FIRST_COLUMN_ID"
+    else
+      COLUMN_ID=$(get_column_id "$COL_NAME")
+    fi
 
     if [ -z "$COLUMN_ID" ]; then
       echo "  SKIP  $TASK_ID: $TASK_TITLE (no column for '$TASK_STATUS')"
@@ -193,20 +274,40 @@ for ((p=0; p<PHASES; p++)); do
 
     if [ -n "$FIZZY_CARD" ]; then
       # Update existing card
-      UPDATE_DATA=$(jq -n \
-        --arg title "$TASK_TITLE" \
-        --arg body "$BODY" \
-        --arg col "$COLUMN_ID" \
-        '{"title": $title, "body": $body, "column_id": ($col | tonumber)}')
+      if [ "$SHOULD_CLOSE" = true ]; then
+        # Update content, then close
+        UPDATE_DATA=$(jq -n \
+          --arg title "$TASK_TITLE" \
+          --arg body "$BODY" \
+          '{"title": $title, "body": $body}')
 
-      fizzy_api PATCH "/cards/$FIZZY_CARD" "$UPDATE_DATA" > /dev/null
+        fizzy_api PATCH "/cards/$FIZZY_CARD" "$UPDATE_DATA"
 
-      if [ "$HTTP_STATUS" = "200" ]; then
-        echo "  UPDATE  #$FIZZY_CARD  $TASK_TITLE  [$TASK_STATUS]"
-        UPDATED=$((UPDATED + 1))
+        if close_card "$FIZZY_CARD"; then
+          echo "  CLOSE   #$FIZZY_CARD  $TASK_TITLE"
+          CLOSED=$((CLOSED + 1))
+        else
+          echo "  ERROR   #$FIZZY_CARD  $TASK_TITLE  (close failed, HTTP $HTTP_STATUS)"
+          SKIPPED=$((SKIPPED + 1))
+        fi
       else
-        echo "  ERROR   #$FIZZY_CARD  $TASK_TITLE  (HTTP $HTTP_STATUS)"
-        SKIPPED=$((SKIPPED + 1))
+        # Update content + column, reopen if previously closed
+        UPDATE_DATA=$(jq -n \
+          --arg title "$TASK_TITLE" \
+          --arg body "$BODY" \
+          --arg col "$COLUMN_ID" \
+          '{"title": $title, "body": $body, "column_id": $col}')
+
+        fizzy_api PATCH "/cards/$FIZZY_CARD" "$UPDATE_DATA"
+
+        if [ "$HTTP_STATUS" = "200" ]; then
+          reopen_card "$FIZZY_CARD"
+          echo "  UPDATE  #$FIZZY_CARD  $TASK_TITLE  [$TASK_STATUS]"
+          UPDATED=$((UPDATED + 1))
+        else
+          echo "  ERROR   #$FIZZY_CARD  $TASK_TITLE  (HTTP $HTTP_STATUS)"
+          SKIPPED=$((SKIPPED + 1))
+        fi
       fi
     else
       # Create new card
@@ -215,19 +316,24 @@ for ((p=0; p<PHASES; p++)); do
         --arg body "$BODY" \
         --arg bid "$BOARD_ID" \
         --arg col "$COLUMN_ID" \
-        '{"title": $title, "body": $body, "board_id": ($bid | tonumber), "column_id": ($col | tonumber)}')
+        '{"title": $title, "body": $body, "board_id": $bid, "column_id": $col}')
 
-      RESPONSE=$(fizzy_api POST "/cards" "$CREATE_DATA")
+      fizzy_api POST "/cards" "$CREATE_DATA"
 
       if [ "$HTTP_STATUS" = "201" ] || [ "$HTTP_STATUS" = "200" ]; then
-        CARD_NUM=$(echo "$RESPONSE" | jq -r '.number')
+        CARD_NUM=$(fizzy_response | jq -r '.number')
 
         # Save card number back to tasks.json
         TMP=$(mktemp)
         jq ".phases[$p].tasks[$t].fizzyCard = $CARD_NUM" "$TASKS_FILE" > "$TMP"
         mv "$TMP" "$TASKS_FILE"
 
-        echo "  CREATE  #$CARD_NUM  $TASK_TITLE  [$TASK_STATUS]"
+        if [ "$SHOULD_CLOSE" = true ]; then
+          close_card "$CARD_NUM"
+          echo "  CREATE  #$CARD_NUM  $TASK_TITLE  [closed]"
+        else
+          echo "  CREATE  #$CARD_NUM  $TASK_TITLE  [$TASK_STATUS]"
+        fi
         CREATED=$((CREATED + 1))
       else
         echo "  ERROR   $TASK_TITLE  (HTTP $HTTP_STATUS)"
@@ -238,5 +344,5 @@ for ((p=0; p<PHASES; p++)); do
 done
 
 echo ""
-echo "Done: $CREATED created, $UPDATED updated, $SKIPPED skipped"
+echo "Done: $CREATED created, $UPDATED updated, $CLOSED closed, $SKIPPED skipped"
 echo ""
