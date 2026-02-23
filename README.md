@@ -341,13 +341,17 @@ Edit `.claude/pipeline/config.json`:
 
 ### Fizzy Sync
 
-Optionally sync your task board to a [Fizzy](https://fizzy.do) kanban board. See [docs/fizzy-setup.md](docs/fizzy-setup.md) for a full deployment guide (Fly.io). Configure during interactive setup or via `--fizzy` flag:
+Optionally sync your task board to a [Fizzy](https://fizzy.do) kanban board. See [docs/fizzy-setup.md](docs/fizzy-setup.md) for a full deployment guide (Fly.io). Configure during setup or reconfigure anytime with `--fizzy`:
 
 ```bash
-# Interactive: answer "y" when prompted "Configure Fizzy sync?"
-
-# Non-interactive:
+# During install:
 ./setup.sh /path/to/project --agents dev-rails --fizzy "https://fizzy.example.com,my-team,\${FIZZY_TOKEN},42"
+
+# Reconfigure Fizzy on an existing project (interactive):
+./setup.sh /path/to/project --fizzy
+
+# Reconfigure Fizzy (non-interactive):
+./setup.sh /path/to/project --fizzy "https://fizzy.example.com,my-team,\${FIZZY_TOKEN},42"
 ```
 
 The `--fizzy` flag takes `url,slug,token,boardId` (comma-separated). Once configured, push tasks:

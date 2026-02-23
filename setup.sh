@@ -366,7 +366,9 @@ interactive_picker() {
 
     local f_token
     read -r -p "  API token (or \${FIZZY_TOKEN} for env var) [\${FIZZY_TOKEN}]: " f_token
-    f_token="${f_token:-\${FIZZY_TOKEN}}"
+    if [ -z "$f_token" ]; then
+      f_token='${FIZZY_TOKEN}'
+    fi
 
     local f_board
     if [ -n "$existing_board" ]; then
@@ -680,6 +682,7 @@ if [ -z "$1" ] || [[ "$1" == --* ]]; then
   echo "  ./setup.sh /path/to/project --agents dev-rails,dev-node  # Non-interactive"
   echo "  ./setup.sh /path/to/project --agents dev-rails --count 2 # Set agent count"
   echo "  ./setup.sh /path/to/project --update                     # Update installed configs"
+  echo "  ./setup.sh /path/to/project --fizzy                      # Configure Fizzy sync"
   echo "  ./setup.sh --list                                        # Show available agents"
   echo ""
   echo "This installs claude-squad into your project's .claude/ directory."
@@ -694,6 +697,7 @@ shift
 AGENTS_FLAG=""
 COUNT_FLAG=""
 FIZZY_FLAG=""
+FIZZY_ONLY=false
 while [ $# -gt 0 ]; do
   case "$1" in
     --agents)
@@ -711,15 +715,103 @@ while [ $# -gt 0 ]; do
       COUNT_FLAG="${1#--count=}"
       ;;
     --fizzy)
-      shift
-      FIZZY_FLAG="$1"
+      if [ -z "$AGENTS_FLAG" ]; then
+        FIZZY_ONLY=true
+      fi
+      # Consume next arg as value only if it exists and isn't a flag
+      if [ $# -gt 1 ] && [[ "$2" != --* ]]; then
+        shift
+        FIZZY_FLAG="$1"
+      fi
       ;;
     --fizzy=*)
+      if [ -z "$AGENTS_FLAG" ]; then
+        FIZZY_ONLY=true
+      fi
       FIZZY_FLAG="${1#--fizzy=}"
       ;;
   esac
   shift
 done
+
+# ── Standalone --fizzy mode (no --agents) ──
+if [ "$FIZZY_ONLY" = true ]; then
+  CONFIG_FILE="$TARGET/pipeline/config.json"
+  if [ ! -f "$CONFIG_FILE" ]; then
+    echo "Error: $CONFIG_FILE not found. Run setup.sh first to install."
+    exit 1
+  fi
+  if ! command -v jq &> /dev/null; then
+    echo "Error: jq is required for Fizzy configuration."
+    exit 1
+  fi
+
+  if [ -n "$FIZZY_FLAG" ]; then
+    # Non-interactive: parse url,slug,token,boardId
+    IFS=',' read -r f_url f_slug f_token f_board <<< "$FIZZY_FLAG"
+    if [ -z "$f_token" ]; then
+      f_token='${FIZZY_TOKEN}'
+    fi
+  else
+    # Interactive: prompt with existing values as defaults
+    existing_url=$(jq -r '.fizzy.url // empty' "$CONFIG_FILE" 2>/dev/null)
+    existing_slug=$(jq -r '.fizzy.accountSlug // empty' "$CONFIG_FILE" 2>/dev/null)
+    existing_board=$(jq -r '.fizzy.boardId // empty' "$CONFIG_FILE" 2>/dev/null)
+
+    echo "Fizzy sync configuration"
+    echo ""
+
+    if [ -n "$existing_url" ] && [ "$existing_url" != "https://your-fizzy.fly.dev" ]; then
+      read -r -p "  Fizzy URL [$existing_url]: " f_url
+      f_url="${f_url:-$existing_url}"
+    else
+      read -r -p "  Fizzy URL (e.g. https://fizzy.example.com): " f_url
+    fi
+
+    if [ -n "$existing_slug" ] && [ "$existing_slug" != "your-account" ]; then
+      read -r -p "  Account slug [$existing_slug]: " f_slug
+      f_slug="${f_slug:-$existing_slug}"
+    else
+      read -r -p "  Account slug: " f_slug
+    fi
+
+    read -r -p "  API token (or \${FIZZY_TOKEN} for env var) [\${FIZZY_TOKEN}]: " f_token
+    if [ -z "$f_token" ]; then
+      f_token='${FIZZY_TOKEN}'
+    fi
+
+    if [ -n "$existing_board" ]; then
+      read -r -p "  Board ID [$existing_board]: " f_board
+      f_board="${f_board:-$existing_board}"
+    else
+      read -r -p "  Board ID (optional, press Enter to skip): " f_board
+    fi
+  fi
+
+  if [ -z "$f_url" ] || [ -z "$f_slug" ]; then
+    echo "Error: Fizzy URL and account slug are required."
+    exit 1
+  fi
+
+  tmp_cfg=$(mktemp)
+  jq --arg url "$f_url" \
+     --arg slug "$f_slug" \
+     --arg ftoken "$f_token" \
+     --arg bid "${f_board:-}" \
+     '.fizzy.url = $url | .fizzy.accountSlug = $slug | .fizzy.token = $ftoken | .fizzy.sync = true | .fizzy.boardId = $bid' \
+     "$CONFIG_FILE" > "$tmp_cfg"
+  mv "$tmp_cfg" "$CONFIG_FILE"
+
+  echo ""
+  echo "Fizzy configured:"
+  echo "  URL:     $f_url"
+  echo "  Slug:    $f_slug"
+  echo "  Token:   $f_token"
+  echo "  Board:   ${f_board:-(not set)}"
+  echo ""
+  echo "To sync tasks: bash .claude/scripts/fizzy-sync.sh"
+  exit 0
+fi
 
 if [ -n "$AGENTS_FLAG" ]; then
   # ── Non-interactive mode ──
