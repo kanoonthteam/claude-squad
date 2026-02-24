@@ -27,7 +27,7 @@ UTILITY_SKILLS="pipeline pipeline-status review"
 CORE_PIPELINE_CONFIGS="pm ba designer architect integration qa"
 
 # Selectable agents grouped by category
-DEV_AGENTS="dev-rails dev-react dev-flutter dev-node dev-odoo dev-salesforce dev-webflow dev-astro dev-payload-cms"
+DEV_AGENTS="dev-rails dev-react dev-flutter dev-node dev-odoo dev-salesforce dev-webflow dev-astro dev-payload-cms dev-ml"
 DEVOP_AGENTS="devop-aws devop-azure devop-gcloud devop-firebase devop-flyio"
 
 # Global: space-separated "agent:count" pairs, e.g. "dev-rails:2 devop-flyio:1"
@@ -801,6 +801,15 @@ if [ "$FIZZY_ONLY" = true ]; then
      '.fizzy.url = $url | .fizzy.accountSlug = $slug | .fizzy.token = $ftoken | .fizzy.sync = true | .fizzy.boardId = $bid' \
      "$CONFIG_FILE" > "$tmp_cfg"
   mv "$tmp_cfg" "$CONFIG_FILE"
+
+  # Also sync fizzy-sync.sh to ensure the script is up to date
+  FIZZY_SCRIPT_SRC="$SCRIPT_DIR/scripts/fizzy-sync.sh"
+  FIZZY_SCRIPT_DST="$TARGET/scripts/fizzy-sync.sh"
+  if [ -f "$FIZZY_SCRIPT_SRC" ]; then
+    mkdir -p "$TARGET/scripts"
+    cp "$FIZZY_SCRIPT_SRC" "$FIZZY_SCRIPT_DST"
+    chmod +x "$FIZZY_SCRIPT_DST"
+  fi
 
   echo ""
   echo "Fizzy configured:"

@@ -177,7 +177,7 @@ Apply update? [y/N/v] (y=yes, N=no, v=view full file)
 
 ## What's Included
 
-### Agents (22 in catalog, 21 installable)
+### Agents (23 in catalog, 22 installable)
 
 | Agent | Role | Skills | Description |
 |-------|------|--------|-------------|
@@ -196,6 +196,7 @@ Apply update? [y/N/v] (y=yes, N=no, v=view full file)
 | `dev-webflow` | Dev | 6 | Webflow (Designer, CMS, IX2 Interactions, custom code) |
 | `dev-astro` | Dev | 6 | Astro (islands architecture, content collections, SSR/SSG) |
 | `dev-payload-cms` | Dev | 6 | Payload CMS (collections, admin UI, REST/GraphQL API) |
+| `dev-ml` | Dev | 6 | ML engineer (PyTorch, scikit-learn, Hugging Face, data pipelines, model serving) |
 | `devop-aws` | DevOps | 11 | AWS (Terraform, CDK, CloudFormation) |
 | `devop-azure` | DevOps | 11 | Azure (Terraform, Bicep, AKS) |
 | `devop-gcloud` | DevOps | 11 | Google Cloud (Terraform, Cloud Run, GKE) |
@@ -206,7 +207,7 @@ Apply update? [y/N/v] (y=yes, N=no, v=view full file)
 
 The 7 core agents (pipeline, pm, ba, designer, architect, integration, qa) are always installed. You select which dev and devop agents to include.
 
-### Skills (93)
+### Skills (97)
 
 Each agent loads only its relevant skills, keeping context windows lean. Skills are organized by domain:
 
@@ -215,7 +216,7 @@ Each agent loads only its relevant skills, keeping context windows lean. Skills 
 - `/pipeline-status` — Show kanban board and progress
 - `/review` — Code review for quality, security, correctness
 
-**Dev Skills (42)** — 4-8 per stack + 2 cross-cutting:
+**Dev Skills (46)** — 4-8 per stack + 2 cross-cutting:
 - Rails: `rails-models`, `rails-controllers`, `rails-performance`, `rails-testing`
 - React: `react-architecture`, `react-state`, `react-testing`, `react-ui`
 - Flutter: `flutter-architecture`, `flutter-networking`, `flutter-testing`, `flutter-ui`, `flutter-firebase`, `flutter-platform`, `flutter-localization`, `flutter-maps`
@@ -225,6 +226,7 @@ Each agent loads only its relevant skills, keeping context windows lean. Skills 
 - Webflow: `webflow-structure`, `webflow-cms`, `webflow-interactions`, `webflow-testing`
 - Astro: `astro-architecture`, `astro-content`, `astro-components`, `astro-testing`
 - Payload CMS: `payload-collections`, `payload-admin`, `payload-api`, `payload-testing`
+- ML: `ml-modeling`, `ml-data`, `ml-serving`, `ml-testing`
 - Cross-cutting: `git-workflow`, `code-review-practices`
 
 **Infrastructure Skills (18)** — 3-4 per cloud:
@@ -361,10 +363,10 @@ export FIZZY_TOKEN=your-personal-access-token
 bash .claude/scripts/fizzy-sync.sh
 ```
 
-The script reads `tasks.json`, creates/updates Fizzy cards, and maps statuses to columns:
-- `todo` → "Todo" | `in_progress` → "In Progress" | `review` → "Review" | `done` → `__close__`
+The script reads `tasks.json`, creates/updates Fizzy cards, and enforces 3 standard columns on the board:
+- **Todo** | **In Progress** | **Review**
 
-Missing columns are auto-created on the board. Use `__close__` to close cards instead of moving to a column (cards are reopened if the status changes back). Column mapping is configurable in `.claude/pipeline/config.json` under `fizzy.columnMap`.
+Done tasks close the card instead of moving to a column. Cards are reopened if the status changes back. Missing columns are auto-created and extra columns are removed to keep the board clean.
 
 ## Task Board
 
@@ -552,7 +554,22 @@ bash scripts/test-setup.sh
 | 11 | `--count` flag | 2 | Count applied to selected agents only, core agents stay at 1 |
 | 12 | Count preservation | 4 | Re-run preserves existing counts; `--count` only affects newly selected agents |
 | 13 | `--fizzy` flag | 2 | Fizzy config written to pipeline config; defaults to disabled without flag |
-| | **Total** | **27** | |
+| 14 | `--fizzy` standalone | 3 | Reconfigures Fizzy on existing project, syncs fizzy-sync.sh to latest |
+| 15 | `--fizzy` default token | 1 | Token defaults to `${FIZZY_TOKEN}` when omitted |
+| 16 | `--update` flag | 2 | Delegates to `update.sh`; passes `--dry-run` through |
+| 17 | Core file auto-create | 1 | `update.sh` auto-creates missing core agents/pipeline configs |
+| 18 | Fizzy config preservation | 1 | `update.sh` preserves user's fizzy config (url, slug, token, board, sync) |
+| 19 | Count preservation (update) | 1 | `update.sh` preserves agent counts during update |
+| 20 | No columnMap | 1 | Fizzy config has no `columnMap` — columns are standard |
+| 21 | Integration phase | 1 | Pipeline config has integration phase with correct agent |
+| 22 | Definition of Done (source) | 1 | All dev/devops agents have `## Definition of Done` section |
+| 23 | Definition of Done (target) | 1 | Installed agents include Definition of Done |
+| 24 | `--update` no path | 1 | Shows usage error when path is missing |
+| 25 | `--fizzy` no install | 1 | Fails on uninitialized project |
+| 26 | `fizzy-sync.sh` validation | 2 | Validates missing tasks.json and missing token |
+| 27 | `--dry-run` safety | 1 | `update.sh --dry-run` makes no file changes |
+| 28 | Script permissions | 1 | Installed scripts are executable and not world-writable |
+| | **Total** | **46** | |
 
 ```
 $ bash scripts/test-setup.sh
@@ -560,49 +577,19 @@ $ bash scripts/test-setup.sh
 claude-squad setup.sh test suite
 =================================
 
-Test 1: --list shows all agents with skills
-  PASS Test 1: --list shows all agents with skills and line counts
-Test 2: --agents dev-rails copies correct subset
-  PASS Test 2a: 8 agent .md files
-  PASS Test 2b: 7 pipeline configs
-  PASS Test 2c: all expected agent files present
-  PASS Test 2e: hooks copied
-  PASS Test 2f: settings copied
-  PASS Test 2: dev-rails install verified
-Test 3: --agents dev-rails,dev-node deduplicates shared skills
-  PASS Test 3a: shared skills exist exactly once
-  PASS Test 3b: both rails and node skills present
-  PASS Test 3c: 9 agent files
-Test 4: --agents dev-rails,devop-flyio copies correct cross-category skills
-  PASS Test 4: cross-category install correct (8 pipeline configs, both skill sets)
-Test 5: Repeatable install — run with dev-rails, then add dev-node
-  PASS Test 5a: both agent .md files present after re-run
-  PASS Test 5b: both pipeline configs present after re-run
-  PASS Test 5c: both skill sets present after re-run
-Test 6: Core agents always present even if not explicitly selected
-  PASS Test 6: all core agents and pipeline configs always present
-Test 7: No stale skill directories after re-run
-  PASS Test 7: no stale skills — kubernetes-patterns absent in rails-only install
-Test 8: Pipeline configs match selected agents
-  PASS Test 8: pipeline configs match exactly
-Test 9: All copied skills exist as source directories
-  PASS Test 9: all installed skills have matching source directories
-Test 10: Scripts, settings, and templates copied correctly
-  PASS Test 10: scripts, settings, and templates all correct
-Test 11: --count sets agent count for selected agents only
-  PASS Test 11a: --count 3 applied to selected agents, core agents unchanged
-  PASS Test 11b: default count is 1 when --count not specified
-Test 12: Re-run preserves existing agent counts
-  PASS Test 12a: dev-rails count preserved as 3 after re-run
-  PASS Test 12b: dev-node count defaults to 1
-  PASS Test 12c: all counts correct after 3 runs (rails=3, node=1, flyio=5)
-  PASS Test 12d: core agents still count 1
-Test 13: --fizzy configures Fizzy sync in pipeline config
-  PASS Test 13a: --fizzy flag sets all Fizzy config fields correctly
-  PASS Test 13b: fizzy.sync defaults to false without --fizzy flag
+Test 1–13:  Setup, agents, skills, counts, fizzy flag  (27 assertions)
+Test 14–15: --fizzy standalone mode + default token     (4 assertions)
+Test 16:    --update delegates to update.sh             (2 assertions)
+Test 17–19: update.sh core auto-create, preservation   (3 assertions)
+Test 20–21: Config structure (no columnMap, integration) (2 assertions)
+Test 22–23: Definition of Done in source + target       (2 assertions)
+Test 24–25: Error handling (--update no path, --fizzy)  (2 assertions)
+Test 26:    fizzy-sync.sh validation                    (2 assertions)
+Test 27:    --dry-run safety                            (1 assertion)
+Test 28:    Script permissions                          (1 assertion)
 
 =================================
-Results: 27/27 passed
+Results: 46/46 passed
 All tests passed!
 ```
 

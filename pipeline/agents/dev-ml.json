@@ -1,0 +1,11 @@
+{
+  "agent": "dev-ml",
+  "role": "dev",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["ml-modeling", "ml-data", "ml-serving", "ml-testing", "git-workflow", "code-review-practices"],
+  "mcp": {},
+  "taskFilter": {
+    "tags": ["data", "ml"]
+  }
+}

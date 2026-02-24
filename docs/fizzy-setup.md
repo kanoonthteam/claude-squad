@@ -141,16 +141,16 @@ Your Fizzy board is now live at `https://your-fizzy-app.fly.dev`.
 
 ### Columns
 
-The fizzy-sync script maps task statuses to Fizzy column names. Missing columns are **auto-created** on the board when you first sync:
+The fizzy-sync script enforces 3 standard columns on the board. Missing columns are **auto-created** and extra columns are **removed** on each sync:
 
-| Task Status | Default Mapping |
-|-------------|----------------|
-| `todo` | Todo |
-| `in_progress` | In Progress |
-| `review` | Review |
-| `done` | `__close__` (closes the card) |
+| Task Status | Action |
+|-------------|--------|
+| `todo` | Moves to **Todo** column |
+| `in_progress` | Moves to **In Progress** column |
+| `review` | Moves to **Review** column |
+| `done` | **Closes** the card |
 
-The special value `__close__` closes the card instead of moving it to a column. Cards are automatically reopened if their status changes back to a non-done status. You can change `__close__` to a column name (e.g. `"Done"`) in `columnMap` if you prefer keeping done cards visible.
+Done tasks close the card instead of moving to a column. Cards are automatically reopened if the status changes back. You don't need to create columns manually — the sync script manages them.
 
 ### Generate an API Token
 
@@ -200,13 +200,7 @@ Edit `.claude/pipeline/config.json` in your project:
     "accountSlug": "your-slug",
     "token": "${FIZZY_TOKEN}",
     "sync": true,
-    "boardId": "42",
-    "columnMap": {
-      "todo": "Todo",
-      "in_progress": "In Progress",
-      "review": "Review",
-      "done": "__close__"
-    }
+    "boardId": "42"
   }
 }
 ```
@@ -295,20 +289,9 @@ fly logs --app your-fizzy-app
 fly status --app your-fizzy-app
 ```
 
-### Column mapping mismatch
+### Extra columns on the board
 
-If your Fizzy columns don't match the defaults, update `fizzy.columnMap` in `config.json`:
-
-```json
-"columnMap": {
-  "todo": "Backlog",
-  "in_progress": "In Progress",
-  "review": "Review",
-  "done": "Completed"
-}
-```
-
-Use `"__close__"` for the `done` value to close cards instead of moving them to a column. Use a column name (e.g. `"Done"`) to keep completed cards visible on the board.
+The sync script enforces exactly 3 columns: Todo, In Progress, Review. Any extra columns on the board are automatically removed during sync. If you see columns disappearing, this is expected behavior. Done tasks close the card rather than using a column.
 
 ## Cost
 

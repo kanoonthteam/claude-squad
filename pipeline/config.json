@@ -30,12 +30,6 @@
     "accountSlug": "your-account",
     "token": "${FIZZY_TOKEN}",
     "sync": false,
-    "boardId": "",
-    "columnMap": {
-      "todo": "Todo",
-      "in_progress": "In Progress",
-      "review": "Review",
-      "done": "__close__"
-    }
+    "boardId": ""
   }
 }

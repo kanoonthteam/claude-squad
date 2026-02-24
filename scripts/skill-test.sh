@@ -40,7 +40,7 @@ FAILURES=""
 categorize_skill() {
   local skill="$1"
   case "$skill" in
-    rails-*|react-*|flutter-*|node-*|odoo-*|salesforce-*|git-workflow|code-review-practices)
+    rails-*|react-*|flutter-*|node-*|odoo-*|salesforce-*|ml-*|git-workflow|code-review-practices)
       echo "dev"
       ;;
     aws-*|azure-*|gcloud-*|firebase-*|flyio-*|devops-*|terraform-patterns|kubernetes-patterns|observability-practices|incident-management)

@@ -8,9 +8,10 @@
 # displaying them in the terminal. Creates new cards for unsynced
 # tasks and updates existing ones.
 #
-# Column map supports "__close__" as a special value — instead of
-# moving to a column, the card is closed (and reopened if the status
-# changes back to a non-close status).
+# Standard columns: Todo, In Progress, Review
+# The board is enforced to have exactly these 3 columns — extra
+# columns are deleted, missing ones are created.
+# Done tasks close the card instead of moving to a column.
 #
 # Configuration: .claude/pipeline/config.json → fizzy section
 # Environment:   FIZZY_TOKEN (overrides config token)
@@ -19,6 +20,12 @@ set -e
 
 CONFIG=".claude/pipeline/config.json"
 TASKS_FILE="tasks.json"
+
+# ─── Standard Columns ──────────────────────────────────────────────────────
+
+COL_TODO="Todo"
+COL_IN_PROGRESS="In Progress"
+COL_REVIEW="Review"
 
 # ─── Prerequisites ───────────────────────────────────────────────────────────
 
@@ -53,13 +60,6 @@ elif [ "$CONFIG_TOKEN" != '${FIZZY_TOKEN}' ] && [ -n "$CONFIG_TOKEN" ]; then
 else
   TOKEN=""
 fi
-
-# Column mapping (task status → Fizzy column name)
-# Use "__close__" as a value to close cards instead of moving to a column
-COL_TODO=$(jq -r '.fizzy.columnMap.todo // "Todo"' "$CONFIG")
-COL_IN_PROGRESS=$(jq -r '.fizzy.columnMap.in_progress // "In Progress"' "$CONFIG")
-COL_REVIEW=$(jq -r '.fizzy.columnMap.review // "Review"' "$CONFIG")
-COL_DONE=$(jq -r '.fizzy.columnMap.done // "__close__"' "$CONFIG")
 
 # ─── Validate ────────────────────────────────────────────────────────────────
 
@@ -148,18 +148,18 @@ get_column_id() {
   echo "$COLUMN_CACHE" | grep "^${1}:" | head -1 | cut -d: -f2
 }
 
-# Map task status to a column name
+# Map task status to a column name ("__close__" = close the card)
 status_to_column_name() {
   case "$1" in
     todo)        echo "$COL_TODO" ;;
     in_progress) echo "$COL_IN_PROGRESS" ;;
     review)      echo "$COL_REVIEW" ;;
-    done)        echo "$COL_DONE" ;;
+    done)        echo "__close__" ;;
     *)           echo "$COL_TODO" ;;
   esac
 }
 
-# ─── Ensure Columns Exist ───────────────────────────────────────────────────
+# ─── Enforce Standard Columns ─────────────────────────────────────────────
 
 create_column() {
   local name="$1"
@@ -168,7 +168,7 @@ create_column() {
   data=$(jq -n --arg n "$name" --arg c "$color" '{"column": {"name": $n, "color": $c}}')
   fizzy_api POST "/boards/$BOARD_ID/columns" "$data"
   if [ "$HTTP_STATUS" = "201" ] || [ "$HTTP_STATUS" = "200" ]; then
-    echo "  Created column: $name"
+    echo "  + Created column: $name"
     return 0
   else
     echo "  Error creating column '$name' (HTTP $HTTP_STATUS)"
@@ -176,25 +176,43 @@ create_column() {
   fi
 }
 
-ensure_columns() {
-  local created=0
+delete_column() {
+  local col_id="$1"
+  local col_name="$2"
+  fizzy_api DELETE "/boards/$BOARD_ID/columns/$col_id"
+  if [ "$HTTP_STATUS" = "204" ] || [ "$HTTP_STATUS" = "200" ]; then
+    echo "  - Removed column: $col_name"
+    return 0
+  else
+    echo "  Error removing column '$col_name' (HTTP $HTTP_STATUS)"
+    return 1
+  fi
+}
 
-  # Collect required column names, skipping __close__
-  for col_name in "$COL_TODO" "$COL_IN_PROGRESS" "$COL_REVIEW" "$COL_DONE"; do
-    # __close__ is a special value, not a real column
-    if [ "$col_name" = "__close__" ]; then
-      continue
-    fi
+enforce_columns() {
+  local changed=0
+
+  # Create missing standard columns
+  for col_name in "$COL_TODO" "$COL_IN_PROGRESS" "$COL_REVIEW"; do
     local col_id
     col_id=$(get_column_id "$col_name")
     if [ -z "$col_id" ]; then
       create_column "$col_name" || true
-      created=$((created + 1))
+      changed=$((changed + 1))
     fi
   done
 
-  # Re-fetch columns if any were created
-  if [ "$created" -gt 0 ]; then
+  # Delete non-standard columns
+  while IFS=: read -r name id; do
+    [ -z "$name" ] && continue
+    case "$name" in
+      "$COL_TODO"|"$COL_IN_PROGRESS"|"$COL_REVIEW") ;;
+      *) delete_column "$id" "$name" || true; changed=$((changed + 1)) ;;
+    esac
+  done <<< "$COLUMN_CACHE"
+
+  # Re-fetch columns if anything changed
+  if [ "$changed" -gt 0 ]; then
     resolve_columns
   fi
 }
@@ -222,7 +240,7 @@ reopen_card() {
 # ─── Push Tasks ──────────────────────────────────────────────────────────────
 
 resolve_columns
-ensure_columns
+enforce_columns
 
 # Get first column ID as fallback for creating cards that will be immediately closed
 FIRST_COLUMN_ID=$(echo "$COLUMN_CACHE" | head -1 | cut -d: -f2)

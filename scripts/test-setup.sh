@@ -80,7 +80,7 @@ for agent in pipeline-agent pm-agent ba-agent designer-agent architect-agent int
 done
 
 # Check dev agents listed
-for agent in dev-rails dev-react dev-flutter dev-node dev-odoo dev-salesforce dev-webflow dev-astro dev-payload-cms; do
+for agent in dev-rails dev-react dev-flutter dev-node dev-odoo dev-salesforce dev-webflow dev-astro dev-payload-cms dev-ml; do
   if echo "$LIST_OUTPUT" | grep -q "$agent"; then
     : # ok
   else
@@ -594,6 +594,383 @@ if [ "$FIZZY_SYNC_DEFAULT" = "false" ]; then
   pass "Test 13b: fizzy.sync defaults to false without --fizzy flag"
 else
   fail "Test 13b: fizzy.sync should default to false, got $FIZZY_SYNC_DEFAULT"
+fi
+
+# ─── Test 14: --fizzy standalone mode (non-interactive) ──────────────────────
+echo "Test 14: --fizzy standalone reconfigures Fizzy on existing project"
+
+T14="$TEST_DIR/t14"
+# First install normally
+bash "$SETUP" "$T14" --agents dev-rails > /dev/null 2>&1
+
+# Verify fizzy is disabled
+FIZZY_SYNC_BEFORE=$(jq -r '.fizzy.sync' "$T14/.claude/pipeline/config.json")
+if [ "$FIZZY_SYNC_BEFORE" != "false" ]; then
+  fail "Test 14: fizzy.sync should start as false, got $FIZZY_SYNC_BEFORE"
+fi
+
+# Run --fizzy standalone to reconfigure
+bash "$SETUP" "$T14" --fizzy "https://my-fizzy.fly.dev,myteam,tok_secret,99" > /dev/null 2>&1
+
+FIZZY14_OK=true
+
+FIZZY14_SYNC=$(jq -r '.fizzy.sync' "$T14/.claude/pipeline/config.json")
+FIZZY14_URL=$(jq -r '.fizzy.url' "$T14/.claude/pipeline/config.json")
+FIZZY14_SLUG=$(jq -r '.fizzy.accountSlug' "$T14/.claude/pipeline/config.json")
+FIZZY14_TOKEN=$(jq -r '.fizzy.token' "$T14/.claude/pipeline/config.json")
+FIZZY14_BOARD=$(jq -r '.fizzy.boardId' "$T14/.claude/pipeline/config.json")
+
+if [ "$FIZZY14_SYNC" != "true" ]; then
+  FIZZY14_OK=false
+  fail "Test 14a: fizzy.sync should be true after --fizzy, got $FIZZY14_SYNC"
+fi
+if [ "$FIZZY14_URL" != "https://my-fizzy.fly.dev" ]; then
+  FIZZY14_OK=false
+  fail "Test 14b: fizzy.url mismatch: $FIZZY14_URL"
+fi
+if [ "$FIZZY14_SLUG" != "myteam" ]; then
+  FIZZY14_OK=false
+  fail "Test 14c: fizzy.accountSlug mismatch: $FIZZY14_SLUG"
+fi
+if [ "$FIZZY14_TOKEN" != "tok_secret" ]; then
+  FIZZY14_OK=false
+  fail "Test 14d: fizzy.token mismatch: $FIZZY14_TOKEN"
+fi
+if [ "$FIZZY14_BOARD" != "99" ]; then
+  FIZZY14_OK=false
+  fail "Test 14e: fizzy.boardId mismatch: $FIZZY14_BOARD"
+fi
+
+if [ "$FIZZY14_OK" = true ]; then
+  pass "Test 14a: --fizzy standalone sets all fields correctly"
+fi
+
+# Agents should be untouched
+if assert_file_exists "$T14/.claude/agents/dev-rails.md"; then
+  pass "Test 14b: existing agents preserved after --fizzy standalone"
+else
+  fail "Test 14b: dev-rails.md missing after --fizzy standalone"
+fi
+
+# fizzy-sync.sh should be synced to latest
+if assert_file_exists "$T14/.claude/scripts/fizzy-sync.sh" && \
+   diff -q "$REPO_DIR/scripts/fizzy-sync.sh" "$T14/.claude/scripts/fizzy-sync.sh" > /dev/null 2>&1; then
+  pass "Test 14c: fizzy-sync.sh updated to latest version"
+else
+  fail "Test 14c: fizzy-sync.sh not synced after --fizzy standalone"
+fi
+
+# ─── Test 15: --fizzy default token when omitted ─────────────────────────────
+echo "Test 15: --fizzy uses \${FIZZY_TOKEN} when token omitted"
+
+T15="$TEST_DIR/t15"
+bash "$SETUP" "$T15" --agents dev-rails > /dev/null 2>&1
+
+# Omit token (only url,slug,,board — empty token)
+bash "$SETUP" "$T15" --fizzy "https://fizzy.test,team,,77" > /dev/null 2>&1
+
+FIZZY15_TOKEN=$(jq -r '.fizzy.token' "$T15/.claude/pipeline/config.json")
+if [ "$FIZZY15_TOKEN" = '${FIZZY_TOKEN}' ]; then
+  pass "Test 15: token defaults to \${FIZZY_TOKEN} when omitted"
+else
+  fail "Test 15: expected \${FIZZY_TOKEN}, got $FIZZY15_TOKEN"
+fi
+
+# ─── Test 16: --update delegates to update.sh ────────────────────────────────
+echo "Test 16: --update flag delegates to update.sh"
+
+T16="$TEST_DIR/t16"
+bash "$SETUP" "$T16" --agents dev-rails > /dev/null 2>&1
+
+# Run --update --dry-run and check output contains update.sh signatures
+UPDATE_OUTPUT=$(bash "$SETUP" "$T16" --update --dry-run 2>&1)
+
+if echo "$UPDATE_OUTPUT" | grep -q "claude-squad update"; then
+  pass "Test 16a: --update delegates to update.sh"
+else
+  fail "Test 16a: --update output doesn't look like update.sh" "Got: $(echo "$UPDATE_OUTPUT" | head -3)"
+fi
+
+# Dry run should not modify files
+if echo "$UPDATE_OUTPUT" | grep -q "dry run"; then
+  pass "Test 16b: --dry-run flag passes through to update.sh"
+else
+  fail "Test 16b: --dry-run not passed through"
+fi
+
+# ─── Test 17: update.sh auto-creates missing core files ──────────────────────
+echo "Test 17: update.sh auto-creates missing core agent/pipeline files"
+
+T17="$TEST_DIR/t17"
+bash "$SETUP" "$T17" --agents dev-rails > /dev/null 2>&1
+
+# Simulate a pre-integration-agent project by deleting it
+rm -f "$T17/.claude/agents/integration-agent.md"
+rm -f "$T17/.claude/pipeline/agents/integration.json"
+
+# Verify they're gone
+if assert_file_exists "$T17/.claude/agents/integration-agent.md"; then
+  fail "Test 17: setup — integration-agent.md should be deleted"
+fi
+
+# Run update (non-interactive, auto-accept with yes)
+yes y 2>/dev/null | bash "$SCRIPT_DIR/update.sh" "$T17" > /dev/null 2>&1 || true
+
+T17_OK=true
+
+if assert_file_exists "$T17/.claude/agents/integration-agent.md"; then
+  : # ok
+else
+  T17_OK=false
+  fail "Test 17a: integration-agent.md not auto-created by update"
+fi
+
+if assert_file_exists "$T17/.claude/pipeline/agents/integration.json"; then
+  : # ok
+else
+  T17_OK=false
+  fail "Test 17b: integration.json not auto-created by update"
+fi
+
+if [ "$T17_OK" = true ]; then
+  pass "Test 17: update.sh auto-creates missing core files"
+fi
+
+# ─── Test 18: update.sh preserves fizzy config ───────────────────────────────
+echo "Test 18: update.sh preserves user's fizzy config"
+
+T18="$TEST_DIR/t18"
+bash "$SETUP" "$T18" --agents dev-rails --fizzy "https://my.fizzy.dev,acme,tok_xyz,55" > /dev/null 2>&1
+
+# Verify fizzy is configured
+FIZZY18_URL_BEFORE=$(jq -r '.fizzy.url' "$T18/.claude/pipeline/config.json")
+if [ "$FIZZY18_URL_BEFORE" != "https://my.fizzy.dev" ]; then
+  fail "Test 18: setup fizzy.url not set correctly"
+fi
+
+# Run update (dry-run to avoid prompts)
+UPDATE18_OUTPUT=$(bash "$SCRIPT_DIR/update.sh" "$T18" --dry-run 2>&1)
+
+# Check fizzy config is still intact after update
+FIZZY18_URL_AFTER=$(jq -r '.fizzy.url' "$T18/.claude/pipeline/config.json")
+FIZZY18_SLUG_AFTER=$(jq -r '.fizzy.accountSlug' "$T18/.claude/pipeline/config.json")
+FIZZY18_TOKEN_AFTER=$(jq -r '.fizzy.token' "$T18/.claude/pipeline/config.json")
+FIZZY18_BOARD_AFTER=$(jq -r '.fizzy.boardId' "$T18/.claude/pipeline/config.json")
+FIZZY18_SYNC_AFTER=$(jq -r '.fizzy.sync' "$T18/.claude/pipeline/config.json")
+
+FIZZY18_OK=true
+if [ "$FIZZY18_URL_AFTER" != "https://my.fizzy.dev" ]; then
+  FIZZY18_OK=false
+  fail "Test 18a: fizzy.url changed after update: $FIZZY18_URL_AFTER"
+fi
+if [ "$FIZZY18_SLUG_AFTER" != "acme" ]; then
+  FIZZY18_OK=false
+  fail "Test 18b: fizzy.accountSlug changed after update: $FIZZY18_SLUG_AFTER"
+fi
+if [ "$FIZZY18_TOKEN_AFTER" != "tok_xyz" ]; then
+  FIZZY18_OK=false
+  fail "Test 18c: fizzy.token changed after update: $FIZZY18_TOKEN_AFTER"
+fi
+if [ "$FIZZY18_BOARD_AFTER" != "55" ]; then
+  FIZZY18_OK=false
+  fail "Test 18d: fizzy.boardId changed after update: $FIZZY18_BOARD_AFTER"
+fi
+if [ "$FIZZY18_SYNC_AFTER" != "true" ]; then
+  FIZZY18_OK=false
+  fail "Test 18e: fizzy.sync changed after update: $FIZZY18_SYNC_AFTER"
+fi
+
+if [ "$FIZZY18_OK" = true ]; then
+  pass "Test 18: fizzy config fully preserved after update"
+fi
+
+# ─── Test 19: update.sh preserves agent counts ───────────────────────────────
+echo "Test 19: update.sh preserves agent counts during update"
+
+T19="$TEST_DIR/t19"
+bash "$SETUP" "$T19" --agents dev-rails --count 4 > /dev/null 2>&1
+
+# Verify count was set
+COUNT19_BEFORE=$(jq -r '.count' "$T19/.claude/pipeline/agents/dev-rails.json")
+if [ "$COUNT19_BEFORE" != "4" ]; then
+  fail "Test 19: setup count not set correctly, got $COUNT19_BEFORE"
+fi
+
+# Run update (dry-run)
+bash "$SCRIPT_DIR/update.sh" "$T19" --dry-run > /dev/null 2>&1
+
+# Count should be preserved
+COUNT19_AFTER=$(jq -r '.count' "$T19/.claude/pipeline/agents/dev-rails.json")
+if [ "$COUNT19_AFTER" = "4" ]; then
+  pass "Test 19: agent count preserved as 4 after update"
+else
+  fail "Test 19: agent count changed from 4 to $COUNT19_AFTER after update"
+fi
+
+# ─── Test 20: config.json has no columnMap ───────────────────────────────────
+echo "Test 20: Pipeline config.json has no columnMap in fizzy section"
+
+T20="$TEST_DIR/t20"
+bash "$SETUP" "$T20" --agents dev-rails > /dev/null 2>&1
+
+HAS_COLUMN_MAP=$(jq 'has("fizzy") and (.fizzy | has("columnMap"))' "$T20/.claude/pipeline/config.json" 2>/dev/null)
+if [ "$HAS_COLUMN_MAP" = "false" ]; then
+  pass "Test 20: no columnMap in fizzy config"
+else
+  fail "Test 20: fizzy.columnMap should not exist in config.json"
+fi
+
+# ─── Test 21: config.json has integration phase ──────────────────────────────
+echo "Test 21: Pipeline config.json has integration phase"
+
+# Reuse T20
+HAS_INTEGRATION=$(jq 'has("integration")' "$T20/.claude/pipeline/config.json" 2>/dev/null)
+INTEGRATION_AGENT=$(jq -r '.integration.agent // empty' "$T20/.claude/pipeline/config.json" 2>/dev/null)
+
+if [ "$HAS_INTEGRATION" = "true" ] && [ "$INTEGRATION_AGENT" = "integration" ]; then
+  pass "Test 21: integration phase present with correct agent"
+else
+  fail "Test 21: integration phase missing or misconfigured (has=$HAS_INTEGRATION, agent=$INTEGRATION_AGENT)"
+fi
+
+# ─── Test 22: All dev agents have Definition of Done ─────────────────────────
+echo "Test 22: All dev/devops agents have Definition of Done section"
+
+DOD_OK=true
+for agent_file in "$REPO_DIR"/agents/dev-*.md "$REPO_DIR"/agents/devop-*.md; do
+  [ -f "$agent_file" ] || continue
+  agent_name=$(basename "$agent_file")
+  if ! grep -q "## Definition of Done" "$agent_file"; then
+    DOD_OK=false
+    fail "Test 22: $agent_name missing '## Definition of Done' section"
+  fi
+done
+
+if [ "$DOD_OK" = true ]; then
+  pass "Test 22: all dev/devops agents have Definition of Done"
+fi
+
+# ─── Test 23: Installed agents have Definition of Done ───────────────────────
+echo "Test 23: Installed dev agents include Definition of Done in target"
+
+T23="$TEST_DIR/t23"
+bash "$SETUP" "$T23" --agents dev-rails,devop-flyio > /dev/null 2>&1
+
+DOD23_OK=true
+for agent_file in "$T23/.claude/agents"/dev-*.md "$T23/.claude/agents"/devop-*.md; do
+  [ -f "$agent_file" ] || continue
+  agent_name=$(basename "$agent_file")
+  if ! grep -q "## Definition of Done" "$agent_file"; then
+    DOD23_OK=false
+    fail "Test 23: installed $agent_name missing '## Definition of Done'"
+  fi
+done
+
+if [ "$DOD23_OK" = true ]; then
+  pass "Test 23: installed agents include Definition of Done"
+fi
+
+# ─── Test 24: --update without path shows usage error ────────────────────────
+echo "Test 24: --update without path shows usage error"
+
+UPDATE_NO_PATH_OUTPUT=$(bash "$SETUP" --update 2>&1 || true)
+if echo "$UPDATE_NO_PATH_OUTPUT" | grep -qi "usage"; then
+  pass "Test 24: --update without path shows usage"
+else
+  fail "Test 24: --update without path should show usage"
+fi
+
+# ─── Test 25: --fizzy standalone fails without existing install ──────────────
+echo "Test 25: --fizzy standalone fails if project not set up"
+
+T25="$TEST_DIR/t25"
+mkdir -p "$T25"
+
+FIZZY_NO_INSTALL=$(bash "$SETUP" "$T25" --fizzy "https://f.dev,slug,tok,1" 2>&1 || true)
+if echo "$FIZZY_NO_INSTALL" | grep -q "not found"; then
+  pass "Test 25: --fizzy standalone fails on uninitialized project"
+else
+  fail "Test 25: should fail when config.json doesn't exist"
+fi
+
+# ─── Test 26: fizzy-sync.sh validates prerequisites ──────────────────────────
+echo "Test 26: fizzy-sync.sh validates config and tasks"
+
+T26="$TEST_DIR/t26"
+bash "$SETUP" "$T26" --agents dev-rails > /dev/null 2>&1
+
+# No tasks.json → should error
+SYNC_NO_TASKS=$(cd "$T26" && bash .claude/scripts/fizzy-sync.sh 2>&1 || true)
+if echo "$SYNC_NO_TASKS" | grep -q "disabled\|No tasks.json\|not found"; then
+  pass "Test 26a: fizzy-sync.sh handles missing tasks.json"
+else
+  fail "Test 26a: fizzy-sync.sh should report missing tasks.json or disabled"
+fi
+
+# Create a dummy tasks.json and enable sync, but no token
+TMP_CFG=$(mktemp)
+jq '.fizzy.sync = true | .fizzy.url = "https://test.dev" | .fizzy.accountSlug = "test" | .fizzy.boardId = "1"' \
+  "$T26/.claude/pipeline/config.json" > "$TMP_CFG"
+mv "$TMP_CFG" "$T26/.claude/pipeline/config.json"
+
+# Create minimal tasks.json
+echo '{"project":"Test","phases":[{"name":"P1","tasks":[]}]}' > "$T26/tasks.json"
+
+# Unset FIZZY_TOKEN to test validation
+SYNC_NO_TOKEN=$(cd "$T26" && FIZZY_TOKEN="" bash .claude/scripts/fizzy-sync.sh 2>&1 || true)
+if echo "$SYNC_NO_TOKEN" | grep -q "No Fizzy token"; then
+  pass "Test 26b: fizzy-sync.sh validates missing token"
+else
+  fail "Test 26b: should report missing token" "Got: $SYNC_NO_TOKEN"
+fi
+
+# ─── Test 27: update.sh --dry-run makes no changes ──────────────────────────
+echo "Test 27: update.sh --dry-run makes no changes"
+
+T27="$TEST_DIR/t27"
+bash "$SETUP" "$T27" --agents dev-rails > /dev/null 2>&1
+
+# Modify a file to create a diff
+echo "# local change" >> "$T27/.claude/agents/dev-rails.md"
+
+# Snapshot the file
+BEFORE_MD5=$(md5 -q "$T27/.claude/agents/dev-rails.md")
+
+# Run dry-run
+bash "$SCRIPT_DIR/update.sh" "$T27" --dry-run > /dev/null 2>&1
+
+AFTER_MD5=$(md5 -q "$T27/.claude/agents/dev-rails.md")
+
+if [ "$BEFORE_MD5" = "$AFTER_MD5" ]; then
+  pass "Test 27: --dry-run makes no changes to files"
+else
+  fail "Test 27: --dry-run modified files"
+fi
+
+# ─── Test 28: Scripts are not world-writable ─────────────────────────────────
+echo "Test 28: Installed scripts are executable but not world-writable"
+
+T28="$TEST_DIR/t28"
+bash "$SETUP" "$T28" --agents dev-rails > /dev/null 2>&1
+
+PERMS_OK=true
+for script in "$T28/.claude/scripts"/*.sh "$T28/.claude/hooks"/*.sh; do
+  [ -f "$script" ] || continue
+  if [ ! -x "$script" ]; then
+    PERMS_OK=false
+    fail "Test 28: $(basename "$script") is not executable"
+  fi
+  # Check not world-writable
+  PERMS=$(stat -f "%Lp" "$script" 2>/dev/null || stat -c "%a" "$script" 2>/dev/null)
+  WORLD_WRITE=$((PERMS % 10))
+  if [ "$((WORLD_WRITE & 2))" -ne 0 ]; then
+    PERMS_OK=false
+    fail "Test 28: $(basename "$script") is world-writable ($PERMS)"
+  fi
+done
+
+if [ "$PERMS_OK" = true ]; then
+  pass "Test 28: all scripts/hooks executable and not world-writable"
 fi
 
 # ─── Summary ──────────────────────────────────────────────────────────────────
