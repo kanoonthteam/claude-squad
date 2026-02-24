@@ -27,7 +27,7 @@ UTILITY_SKILLS="pipeline pipeline-status review"
 CORE_PIPELINE_CONFIGS="pm ba designer architect integration qa"
 
 # Selectable agents grouped by category
-DEV_AGENTS="dev-rails dev-react dev-flutter dev-node dev-odoo dev-salesforce dev-webflow dev-astro dev-payload-cms dev-ml"
+DEV_AGENTS="dev-rails dev-react dev-flutter dev-node dev-odoo dev-salesforce dev-webflow dev-astro dev-payload-cms dev-ml researcher"
 DEVOP_AGENTS="devop-aws devop-azure devop-gcloud devop-firebase devop-flyio"
 
 # Global: space-separated "agent:count" pairs, e.g. "dev-rails:2 devop-flyio:1"
@@ -152,7 +152,7 @@ detect_existing() {
       basename=$(basename "$json_file" .json)
       # Only track selectable agents (dev-* and devop-*)
       case "$basename" in
-        dev-*|devop-*) existing="$existing $basename" ;;
+        dev-*|devop-*|researcher) existing="$existing $basename" ;;
       esac
     done
   fi

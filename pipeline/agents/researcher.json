@@ -1,0 +1,11 @@
+{
+  "agent": "researcher",
+  "role": "research",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["researcher-web", "researcher-analysis", "researcher-reporting", "researcher-feasibility"],
+  "mcp": {},
+  "taskFilter": {
+    "tags": ["research", "analysis", "feasibility", "discovery"]
+  }
+}

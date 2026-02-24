@@ -177,7 +177,7 @@ Apply update? [y/N/v] (y=yes, N=no, v=view full file)
 
 ## What's Included
 
-### Agents (23 in catalog, 22 installable)
+### Agents (24 in catalog, 23 installable)
 
 | Agent | Role | Skills | Description |
 |-------|------|--------|-------------|
@@ -197,6 +197,7 @@ Apply update? [y/N/v] (y=yes, N=no, v=view full file)
 | `dev-astro` | Dev | 6 | Astro (islands architecture, content collections, SSR/SSG) |
 | `dev-payload-cms` | Dev | 6 | Payload CMS (collections, admin UI, REST/GraphQL API) |
 | `dev-ml` | Dev | 6 | ML engineer (PyTorch, scikit-learn, Hugging Face, data pipelines, model serving) |
+| `researcher` | Research | 4 | Research agent (web browsing research, data analysis, feasibility study) |
 | `devop-aws` | DevOps | 11 | AWS (Terraform, CDK, CloudFormation) |
 | `devop-azure` | DevOps | 11 | Azure (Terraform, Bicep, AKS) |
 | `devop-gcloud` | DevOps | 11 | Google Cloud (Terraform, Cloud Run, GKE) |
@@ -207,7 +208,7 @@ Apply update? [y/N/v] (y=yes, N=no, v=view full file)
 
 The 7 core agents (pipeline, pm, ba, designer, architect, integration, qa) are always installed. You select which dev and devop agents to include.
 
-### Skills (97)
+### Skills (101)
 
 Each agent loads only its relevant skills, keeping context windows lean. Skills are organized by domain:
 
@@ -216,7 +217,7 @@ Each agent loads only its relevant skills, keeping context windows lean. Skills 
 - `/pipeline-status` — Show kanban board and progress
 - `/review` — Code review for quality, security, correctness
 
-**Dev Skills (46)** — 4-8 per stack + 2 cross-cutting:
+**Dev Skills (50)** — 4-8 per stack + 2 cross-cutting:
 - Rails: `rails-models`, `rails-controllers`, `rails-performance`, `rails-testing`
 - React: `react-architecture`, `react-state`, `react-testing`, `react-ui`
 - Flutter: `flutter-architecture`, `flutter-networking`, `flutter-testing`, `flutter-ui`, `flutter-firebase`, `flutter-platform`, `flutter-localization`, `flutter-maps`
@@ -227,6 +228,7 @@ Each agent loads only its relevant skills, keeping context windows lean. Skills 
 - Astro: `astro-architecture`, `astro-content`, `astro-components`, `astro-testing`
 - Payload CMS: `payload-collections`, `payload-admin`, `payload-api`, `payload-testing`
 - ML: `ml-modeling`, `ml-data`, `ml-serving`, `ml-testing`
+- Researcher: `researcher-web`, `researcher-analysis`, `researcher-reporting`, `researcher-feasibility`
 - Cross-cutting: `git-workflow`, `code-review-practices`
 
 **Infrastructure Skills (18)** — 3-4 per cloud:
@@ -401,8 +403,8 @@ A CLAUDE.md template is provided at `templates/CLAUDE.md.template`. Copy it to y
 
 ```
 claude-squad/
-├── agents/                # Agent definitions (22 .md files)
-├── skills/                # Skill knowledge bases (93 directories)
+├── agents/                # Agent definitions (23 .md files)
+├── skills/                # Skill knowledge bases (97 directories)
 │   └── [skill-name]/
 │       └── SKILL.md
 ├── pipeline/
