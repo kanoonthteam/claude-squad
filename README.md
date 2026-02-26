@@ -177,7 +177,7 @@ Apply update? [y/N/v] (y=yes, N=no, v=view full file)
 
 ## What's Included
 
-### Agents (24 in catalog, 23 installable)
+### Agents (34 in catalog, 33 installable)
 
 | Agent | Role | Skills | Description |
 |-------|------|--------|-------------|
@@ -197,6 +197,16 @@ Apply update? [y/N/v] (y=yes, N=no, v=view full file)
 | `dev-astro` | Dev | 6 | Astro (islands architecture, content collections, SSR/SSG) |
 | `dev-payload-cms` | Dev | 6 | Payload CMS (collections, admin UI, REST/GraphQL API) |
 | `dev-ml` | Dev | 6 | ML engineer (PyTorch, scikit-learn, Hugging Face, data pipelines, model serving) |
+| `dev-parser` | Dev | 6 | Parser/Compiler Engineer (Dart lexer/parser, AST, graph algorithms, export) |
+| `dev-tooling` | Dev | 4 | CLI/Build Tooling Engineer (Dart CLI, file watchers, incremental builds) |
+| `dev-export` | Dev | 5 | Export/Integration Engineer (PDF, PPTX, PNG, SVG, Figma/Jira APIs) |
+| `dev-python` | Dev | 6 | Python developer (Flask, FastAPI, SQLAlchemy, pytest, boto3) |
+| `dev-dotnet` | Dev | 7 | C# developer (ASP.NET Core 8, Web API, Entity Framework, xUnit) |
+| `dev-3d-cad` | Dev | 7 | 3D/CAD engineer (Three.js, OpenCascade, glTF, STEP/DXF, computational geometry) |
+| `dev-firmware` | Dev | 6 | ESP32 firmware (GPIO, ADC, MQTT, FreeRTOS, OTA) |
+| `dev-networking` | Dev | 6 | Network/VPN engineer (WireGuard, OpenVPN, iptables, DNS, DHCP, monitoring) |
+| `dev-hardware` | Dev | 5 | Hardware design (PCB, KiCad schematics, signal conditioning, BOM) |
+| `dev-rust` | Dev | 6 | Rust developer (Axum, Tokio, SeaORM, SQLx, cargo test) |
 | `researcher` | Research | 4 | Research agent (web browsing research, data analysis, feasibility study) |
 | `devop-aws` | DevOps | 11 | AWS (Terraform, CDK, CloudFormation) |
 | `devop-azure` | DevOps | 11 | Azure (Terraform, Bicep, AKS) |
@@ -208,7 +218,7 @@ Apply update? [y/N/v] (y=yes, N=no, v=view full file)
 
 The 7 core agents (pipeline, pm, ba, designer, architect, integration, qa) are always installed. You select which dev and devop agents to include.
 
-### Skills (101)
+### Skills (139)
 
 Each agent loads only its relevant skills, keeping context windows lean. Skills are organized by domain:
 
@@ -217,7 +227,7 @@ Each agent loads only its relevant skills, keeping context windows lean. Skills 
 - `/pipeline-status` — Show kanban board and progress
 - `/review` — Code review for quality, security, correctness
 
-**Dev Skills (50)** — 4-8 per stack + 2 cross-cutting:
+**Dev Skills (88)** — 4-8 per stack + 2 cross-cutting:
 - Rails: `rails-models`, `rails-controllers`, `rails-performance`, `rails-testing`
 - React: `react-architecture`, `react-state`, `react-testing`, `react-ui`
 - Flutter: `flutter-architecture`, `flutter-networking`, `flutter-testing`, `flutter-ui`, `flutter-firebase`, `flutter-platform`, `flutter-localization`, `flutter-maps`
@@ -229,6 +239,16 @@ Each agent loads only its relevant skills, keeping context windows lean. Skills 
 - Payload CMS: `payload-collections`, `payload-admin`, `payload-api`, `payload-testing`
 - ML: `ml-modeling`, `ml-data`, `ml-serving`, `ml-testing`
 - Researcher: `researcher-web`, `researcher-analysis`, `researcher-reporting`, `researcher-feasibility`
+- Parser: `parser-architecture`, `parser-regex`, `graph-algorithms`, `graph-export`
+- Tooling: `cli-design`, `build-systems`
+- Export: `export-formats`, `design-tool-apis`, `project-tool-apis`
+- Python: `python-flask`, `python-data-processing`, `python-aws`, `python-testing`
+- .NET: `dotnet-webapi`, `dotnet-services`, `dotnet-aws`, `dotnet-testing`, `dotnet-logging`
+- 3D/CAD: `threejs-react`, `gltf-format`, `opencascade-python`, `cad-formats`, `computational-geometry`
+- Firmware: `esp32-peripherals`, `esp32-mqtt`, `esp32-rtos`, `esp32-networking`
+- Networking: `vpn-protocols`, `firewall-routing`, `dns-dhcp`, `network-monitoring`
+- Hardware: `kicad-schematic`, `signal-interfacing`, `pcb-bom`
+- Rust: `rust-web`, `rust-async`, `rust-testing`, `rust-systems`
 - Cross-cutting: `git-workflow`, `code-review-practices`
 
 **Infrastructure Skills (18)** — 3-4 per cloud:
@@ -403,13 +423,13 @@ A CLAUDE.md template is provided at `templates/CLAUDE.md.template`. Copy it to y
 
 ```
 claude-squad/
-├── agents/                # Agent definitions (23 .md files)
-├── skills/                # Skill knowledge bases (97 directories)
+├── agents/                # Agent definitions (33 .md files)
+├── skills/                # Skill knowledge bases (135 directories)
 │   └── [skill-name]/
 │       └── SKILL.md
 ├── pipeline/
 │   ├── config.json        # Pipeline orchestration settings + Fizzy config
-│   └── agents/            # Per-agent pipeline configs (20 .json)
+│   └── agents/            # Per-agent pipeline configs (30 .json)
 ├── hooks/
 │   ├── test-before-commit.sh   # Pre-commit test hook
 │   └── protect-definitions.sh  # Agent/skill edit warning

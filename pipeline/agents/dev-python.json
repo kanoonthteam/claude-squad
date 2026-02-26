@@ -1,0 +1,11 @@
+{
+  "agent": "dev-python",
+  "role": "dev",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["python-flask", "python-data-processing", "python-aws", "python-testing", "git-workflow", "code-review-practices"],
+  "mcp": {},
+  "taskFilter": {
+    "tags": ["backend", "python"]
+  }
+}

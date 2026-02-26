@@ -27,7 +27,7 @@ UTILITY_SKILLS="pipeline pipeline-status review"
 CORE_PIPELINE_CONFIGS="pm ba designer architect integration qa"
 
 # Selectable agents grouped by category
-DEV_AGENTS="dev-rails dev-react dev-flutter dev-node dev-odoo dev-salesforce dev-webflow dev-astro dev-payload-cms dev-ml researcher"
+DEV_AGENTS="dev-rails dev-react dev-flutter dev-node dev-odoo dev-salesforce dev-webflow dev-astro dev-payload-cms dev-ml dev-python dev-dotnet dev-3d-cad dev-parser dev-tooling dev-export dev-firmware dev-networking dev-hardware dev-rust researcher"
 DEVOP_AGENTS="devop-aws devop-azure devop-gcloud devop-firebase devop-flyio"
 
 # Global: space-separated "agent:count" pairs, e.g. "dev-rails:2 devop-flyio:1"

@@ -1,0 +1,11 @@
+{
+  "agent": "dev-export",
+  "role": "dev",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["export-formats", "design-tool-apis", "project-tool-apis", "git-workflow", "code-review-practices"],
+  "mcp": {},
+  "taskFilter": {
+    "tags": ["export", "pdf", "figma", "jira", "integration"]
+  }
+}

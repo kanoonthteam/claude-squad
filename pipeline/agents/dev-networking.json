@@ -1,0 +1,11 @@
+{
+  "agent": "dev-networking",
+  "role": "dev",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["vpn-protocols", "firewall-routing", "dns-dhcp", "network-monitoring", "git-workflow", "code-review-practices"],
+  "mcp": {},
+  "taskFilter": {
+    "tags": ["networking", "vpn", "infrastructure"]
+  }
+}

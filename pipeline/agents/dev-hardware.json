@@ -1,0 +1,11 @@
+{
+  "agent": "dev-hardware",
+  "role": "dev",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["kicad-schematic", "signal-interfacing", "pcb-bom", "git-workflow", "code-review-practices"],
+  "mcp": {},
+  "taskFilter": {
+    "tags": ["hardware", "pcb", "schematic"]
+  }
+}

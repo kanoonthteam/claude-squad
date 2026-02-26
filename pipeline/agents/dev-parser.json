@@ -1,0 +1,11 @@
+{
+  "agent": "dev-parser",
+  "role": "dev",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["parser-architecture", "parser-regex", "graph-algorithms", "graph-export", "git-workflow", "code-review-practices"],
+  "mcp": {},
+  "taskFilter": {
+    "tags": ["parser", "lexer", "ast", "graph"]
+  }
+}

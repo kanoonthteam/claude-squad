@@ -1,0 +1,11 @@
+{
+  "agent": "dev-dotnet",
+  "role": "dev",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["dotnet-webapi", "dotnet-services", "dotnet-aws", "dotnet-testing", "dotnet-logging", "git-workflow", "code-review-practices"],
+  "mcp": {},
+  "taskFilter": {
+    "tags": ["backend", "dotnet"]
+  }
+}

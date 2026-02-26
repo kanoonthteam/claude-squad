@@ -13,6 +13,10 @@
 # columns are deleted, missing ones are created.
 # Done tasks close the card instead of moving to a column.
 #
+# Card description includes: task metadata, description,
+# acceptance criteria, and dependencies.
+# Card tags are synced via the taggings endpoint (epic + task tags).
+#
 # Configuration: .claude/pipeline/config.json → fizzy section
 # Environment:   FIZZY_TOKEN (overrides config token)
 
@@ -237,6 +241,53 @@ reopen_card() {
   return 0
 }
 
+# ─── Tag Sync ───────────────────────────────────────────────────────────────
+
+# Fizzy tags are managed via a toggle endpoint (POST /cards/:id/taggings).
+# We fetch the card's current tags, then toggle to reach the desired state.
+sync_tags() {
+  local card_id="$1"
+  shift
+  local desired=("$@")
+
+  # Get current tags on the card
+  fizzy_api GET "/cards/$card_id"
+  local current_tags=()
+  if [ "$HTTP_STATUS" = "200" ]; then
+    while IFS= read -r _tag_line; do
+      [ -n "$_tag_line" ] && current_tags+=("$_tag_line")
+    done <<< "$(fizzy_response | jq -r '.tags[]? // empty')"
+  fi
+
+  # Add missing tags (toggle on)
+  for tag in "${desired[@]}"; do
+    local found=false
+    for ct in "${current_tags[@]}"; do
+      if [ "$ct" = "$tag" ]; then
+        found=true
+        break
+      fi
+    done
+    if [ "$found" = false ]; then
+      fizzy_api POST "/cards/$card_id/taggings" "{\"tag_title\": \"$tag\"}"
+    fi
+  done
+
+  # Remove extra tags (toggle off)
+  for ct in "${current_tags[@]}"; do
+    local found=false
+    for tag in "${desired[@]}"; do
+      if [ "$tag" = "$ct" ]; then
+        found=true
+        break
+      fi
+    done
+    if [ "$found" = false ]; then
+      fizzy_api POST "/cards/$card_id/taggings" "{\"tag_title\": \"$ct\"}"
+    fi
+  done
+}
+
 # ─── Push Tasks ──────────────────────────────────────────────────────────────
 
 resolve_columns
@@ -270,6 +321,10 @@ for ((p=0; p<PHASES; p++)); do
     TASK_TITLE=$(jq -r ".phases[$p].tasks[$t].title" "$TASKS_FILE")
     TASK_STATUS=$(jq -r ".phases[$p].tasks[$t].status" "$TASKS_FILE")
     TASK_TAGS=$(jq -r ".phases[$p].tasks[$t].tags // [] | join(\", \")" "$TASKS_FILE")
+    TASK_DESC=$(jq -r ".phases[$p].tasks[$t].description // empty" "$TASKS_FILE")
+    TASK_AC=$(jq -r ".phases[$p].tasks[$t].acceptance_criteria // [] | map(\"- \" + .) | join(\"\n\")" "$TASKS_FILE")
+    TASK_DEPS=$(jq -r ".phases[$p].tasks[$t].dependencies // [] | join(\", \")" "$TASKS_FILE")
+    TASK_EPIC=$(jq -r ".phases[$p].tasks[$t].epic // empty" "$TASKS_FILE")
     FIZZY_CARD=$(jq -r ".phases[$p].tasks[$t].fizzyCard // empty" "$TASKS_FILE")
 
     COL_NAME=$(status_to_column_name "$TASK_STATUS")
@@ -288,7 +343,40 @@ for ((p=0; p<PHASES; p++)); do
       continue
     fi
 
-    BODY="**Task:** $TASK_ID | **Phase:** $PHASE_NAME | **Tags:** $TASK_TAGS"
+    # Build card description with all task details
+    DESC="**Task:** $TASK_ID
+**Phase:** $PHASE_NAME"
+    if [ -n "$TASK_TAGS" ]; then
+      DESC="$DESC
+**Tags:** $TASK_TAGS"
+    fi
+    if [ -n "$TASK_DEPS" ]; then
+      DESC="$DESC
+**Depends on:** $TASK_DEPS"
+    fi
+    if [ -n "$TASK_DESC" ]; then
+      DESC="$DESC
+
+$TASK_DESC"
+    fi
+    if [ -n "$TASK_AC" ]; then
+      DESC="$DESC
+
+**Acceptance Criteria:**
+$TASK_AC"
+    fi
+
+    # Build desired tags list: epic (if set) + task tags
+    DESIRED_TAGS=()
+    if [ -n "$TASK_EPIC" ]; then
+      DESIRED_TAGS+=("$TASK_EPIC")
+    fi
+    if [ -n "$TASK_TAGS" ]; then
+      while IFS= read -r tag; do
+        tag=$(echo "$tag" | sed 's/^ *//;s/ *$//')
+        [ -n "$tag" ] && DESIRED_TAGS+=("$tag")
+      done <<< "$(echo "$TASK_TAGS" | tr ',' '\n')"
+    fi
 
     if [ -n "$FIZZY_CARD" ]; then
       # Update existing card
@@ -296,10 +384,11 @@ for ((p=0; p<PHASES; p++)); do
         # Update content, then close
         UPDATE_DATA=$(jq -n \
           --arg title "$TASK_TITLE" \
-          --arg body "$BODY" \
-          '{"title": $title, "body": $body}')
+          --arg desc "$DESC" \
+          '{"card": {"title": $title, "description": $desc}}')
 
         fizzy_api PATCH "/cards/$FIZZY_CARD" "$UPDATE_DATA"
+        sync_tags "$FIZZY_CARD" "${DESIRED_TAGS[@]}"
 
         if close_card "$FIZZY_CARD"; then
           echo "  CLOSE   #$FIZZY_CARD  $TASK_TITLE"
@@ -312,14 +401,15 @@ for ((p=0; p<PHASES; p++)); do
         # Update content + column, reopen if previously closed
         UPDATE_DATA=$(jq -n \
           --arg title "$TASK_TITLE" \
-          --arg body "$BODY" \
+          --arg desc "$DESC" \
           --arg col "$COLUMN_ID" \
-          '{"title": $title, "body": $body, "column_id": $col}')
+          '{"card": {"title": $title, "description": $desc, "column_id": $col}}')
 
         fizzy_api PATCH "/cards/$FIZZY_CARD" "$UPDATE_DATA"
 
         if [ "$HTTP_STATUS" = "200" ]; then
           reopen_card "$FIZZY_CARD"
+          sync_tags "$FIZZY_CARD" "${DESIRED_TAGS[@]}"
           echo "  UPDATE  #$FIZZY_CARD  $TASK_TITLE  [$TASK_STATUS]"
           UPDATED=$((UPDATED + 1))
         else
@@ -328,15 +418,14 @@ for ((p=0; p<PHASES; p++)); do
         fi
       fi
     else
-      # Create new card
+      # Create new card (POST /boards/:board_id/cards)
       CREATE_DATA=$(jq -n \
         --arg title "$TASK_TITLE" \
-        --arg body "$BODY" \
-        --arg bid "$BOARD_ID" \
+        --arg desc "$DESC" \
         --arg col "$COLUMN_ID" \
-        '{"title": $title, "body": $body, "board_id": $bid, "column_id": $col}')
+        '{"card": {"title": $title, "description": $desc, "column_id": $col}}')
 
-      fizzy_api POST "/cards" "$CREATE_DATA"
+      fizzy_api POST "/boards/$BOARD_ID/cards" "$CREATE_DATA"
 
       if [ "$HTTP_STATUS" = "201" ] || [ "$HTTP_STATUS" = "200" ]; then
         CARD_NUM=$(fizzy_response | jq -r '.number')
@@ -345,6 +434,8 @@ for ((p=0; p<PHASES; p++)); do
         TMP=$(mktemp)
         jq ".phases[$p].tasks[$t].fizzyCard = $CARD_NUM" "$TASKS_FILE" > "$TMP"
         mv "$TMP" "$TASKS_FILE"
+
+        sync_tags "$CARD_NUM" "${DESIRED_TAGS[@]}"
 
         if [ "$SHOULD_CLOSE" = true ]; then
           close_card "$CARD_NUM"

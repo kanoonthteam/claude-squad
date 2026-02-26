@@ -1,0 +1,11 @@
+{
+  "agent": "dev-firmware",
+  "role": "dev",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["esp32-peripherals", "esp32-mqtt", "esp32-rtos", "esp32-networking", "git-workflow", "code-review-practices"],
+  "mcp": {},
+  "taskFilter": {
+    "tags": ["firmware", "esp32", "iot"]
+  }
+}

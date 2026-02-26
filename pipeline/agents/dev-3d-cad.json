@@ -1,0 +1,11 @@
+{
+  "agent": "dev-3d-cad",
+  "role": "dev",
+  "count": 1,
+  "model": "sonnet",
+  "skills": ["threejs-react", "gltf-format", "opencascade-python", "cad-formats", "computational-geometry", "git-workflow", "code-review-practices"],
+  "mcp": {},
+  "taskFilter": {
+    "tags": ["3d", "cad", "frontend"]
+  }
+}

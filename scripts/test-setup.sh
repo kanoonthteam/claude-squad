@@ -80,7 +80,7 @@ for agent in pipeline-agent pm-agent ba-agent designer-agent architect-agent int
 done
 
 # Check dev agents listed
-for agent in dev-rails dev-react dev-flutter dev-node dev-odoo dev-salesforce dev-webflow dev-astro dev-payload-cms dev-ml researcher; do
+for agent in dev-rails dev-react dev-flutter dev-node dev-odoo dev-salesforce dev-webflow dev-astro dev-payload-cms dev-ml dev-python dev-dotnet dev-3d-cad dev-parser dev-tooling dev-export dev-firmware dev-networking dev-hardware dev-rust researcher; do
   if echo "$LIST_OUTPUT" | grep -q "$agent"; then
     : # ok
   else
